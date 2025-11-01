@@ -1,0 +1,52 @@
+# Compiled output
+/backend/target/
+/backend/out/
+/frontend/.next/
+/frontend/out/
+/frontend/build/
+
+# Dependencies
+/backend/.mvn/wrapper/maven-wrapper.jar
+/frontend/node_modules/
+/frontend/.pnp
+/frontend/.pnp.js
+
+# Environment files
+**/.env
+**/.env.local
+**/.env.*.local
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Testing
+/backend/coverage/
+/frontend/coverage/
+
+# Docker volumes
+postgres_data/
+redis_data/
+ollama_data/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
