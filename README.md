@@ -1,288 +1,374 @@
+<div align="center">
+
 # ✈️ Airline Service Assistant
 
-> AI-powered airline customer service assistant with intelligent flight search, booking, and policy Q&A — Built with Spring AI & Next.js, deployable at **zero cost**.
+### AI-Powered Flight Search & Customer Service Platform
 
-[![Backend CI](https://github.com/iamnguyenvu/airline-service-assistant/workflows/Backend%20CI/badge.svg)](https://github.com/iamnguyenvu/airline-service-assistant/actions)
-[![Frontend CI](https://github.com/iamnguyenvu/airline-service-assistant/workflows/Frontend%20CI/badge.svg)](https://github.com/iamnguyenvu/airline-service-assistant/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
-## 🌟 Features
+[Features](#-features) • [Tech Stack](#-tech-stack) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Contributing](#-contributing)
 
-- 🤖 **AI-Powered Assistant**: Natural language flight search and booking using tool-calling LLMs (Ollama/Groq)
-- 🔍 **Smart Flight Search**: Explainable ranking with breakdown (price, duration, CO₂, preferences)
-- 📋 **Policy Q&A**: RAG-based answers with citations from airline documents
-- 🎫 **Mock Booking**: Generate PNR and PDF e-tickets
-- 🌿 **CO₂ Estimation**: Environmental impact awareness
-- 📊 **Historical Data**: 3-month detailed + 1-year aggregated flight price trends
-- 🔐 **Secure Auth**: Supabase OAuth integration (Google/GitHub)
+</div>
 
-## 🏗️ Architecture
+---
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│   Next.js 16    │────▶│  Spring Boot    │────▶│  PostgreSQL 16   │
-│   Frontend      │     │  3.5 Backend    │     │  + pgvector      │
-└─────────────────┘     └─────────────────┘     └──────────────────┘
-        │                       │                         │
-        │                       │                         │
-        ▼                       ▼                         ▼
-┌─────────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│   Supabase      │     │   Redis Cache   │     │   Ollama LLM     │
-│  Auth/Storage   │     │                 │     │  (Local/Free)    │
-└─────────────────┘     └─────────────────┘     └──────────────────┘
-```
+## 🎯 Overview
+
+**Airline Service Assistant** is a zero-cost, AI-powered platform that acts as a virtual airline customer service agent. It provides intelligent flight search, booking management, policy inquiries, and disruption handling — all with explainable reasoning and zero hallucinations.
+
+### 🌟 Key Highlights
+
+- 🤖 **Tool-First AI**: Uses function calling to ensure accurate, citation-backed responses
+- 💰 **Zero-Cost Deployment**: Runs entirely on free tiers (Supabase, Ollama, Railway/Vercel)
+- 🔍 **Smart Ranking**: Multi-factor scoring (price, duration, CO₂, preferences) with explanations
+- 📊 **Policy RAG**: Vector search over airline policies with source citations
+- 🔄 **IRROPS Handling**: Automatic rebooking suggestions for delays/cancellations
+- 🌍 **Bilingual**: Supports Vietnamese and English
+
+---
+
+## ✨ Features
+
+### For Passengers
+- 🔎 **Smart Flight Search**: Find flights with intelligent filtering (budget, time, baggage, carrier)
+- 📖 **Policy Q&A**: Ask about change fees, refunds, baggage allowance, etc.
+- 🎫 **Mock Booking**: Generate PNR and downloadable PDF e-tickets
+- ⏰ **Hold Timer**: Reserve flights with automatic expiration
+- 🌿 **CO₂ Tracking**: See environmental impact vs. route median
+
+### For Agents
+- 📋 **Quick Policy Lookup**: Instant access to fare rules and conditions
+- 💵 **Fee Estimation**: Calculate change/refund fees with rule citations
+- 🔄 **Rapid Rebooking**: AI-suggested alternatives during disruptions
+- 📊 **Price Trends**: Historical price data (P50/P90) for route analysis
+
+### For Developers
+- 🏗️ **Modular Architecture**: Clean separation (AI/Flight/Ingestion services)
+- 🧪 **Testcontainers**: Full integration tests with PostgreSQL + Redis
+- 📚 **OpenAPI Docs**: Auto-generated Swagger UI
+- 🔒 **OAuth2 Ready**: Supabase JWT authentication
+- 📦 **Docker Compose**: One-command local environment
+
+---
 
 ## 🛠️ Tech Stack
 
 ### Backend
-- **Java 21** + **Spring Boot 3.5.x**
-- **Spring AI 1.0** (Ollama integration + Tool Calling)
-- **PostgreSQL 16** + **pgvector** (Vector search for RAG)
-- **Redis 7** (Caching)
-- **Flyway** (Database migrations)
-- **OpenAPI/Swagger** (API documentation)
+| Technology | Purpose | Why? |
+|------------|---------|------|
+| **Java 21 + Spring Boot 3.5** | Core framework | Enterprise-grade, mature ecosystem |
+| **Spring AI 1.0** | LLM orchestration | Native tool calling support |
+| **PostgreSQL 16 + pgvector** | Database + Vector search | Single DB for OLTP + RAG |
+| **Redis 7** | Caching | Fast search result + status caching |
+| **Flyway** | Schema migrations | Version-controlled DB changes |
+| **Testcontainers** | Integration testing | Real DB tests in CI/CD |
 
 ### Frontend
-- **Next.js 16** (App Router)
-- **React 19** + **TypeScript**
-- **Tailwind CSS 4** + **shadcn/ui**
-- **TanStack Query** (Data fetching)
-- **Supabase JS** (Auth & Storage)
-- **Recharts** (Data visualization)
+| Technology | Purpose | Why? |
+|------------|---------|------|
+| **Next.js 16 (App Router)** | React framework | SSR/ISR for SEO, streaming support |
+| **Tailwind CSS 4 + shadcn/ui** | UI components | Rapid dev, consistent design |
+| **TanStack Query** | Data fetching | Smart caching, auto-retry |
+| **Supabase Client** | Auth + Storage | OAuth, file uploads |
+| **Recharts** | Data visualization | Price trends, CO₂ charts |
 
-### AI & ML
-- **Ollama** (Local LLM - Llama 3.1 8B / Mistral 7B)
-- **Alternative**: Groq API (free tier: 14,400 req/day)
-- **Embeddings**: sentence-transformers (all-MiniLM-L6-v2)
+### AI & Data
+| Technology | Purpose | Cost |
+|------------|---------|------|
+| **Ollama** (Llama 3.1 8B) | Local LLM | $0 (self-hosted) |
+| **sentence-transformers** | Embeddings | $0 (local) |
+| **Groq API** (alternative) | Cloud LLM | $0 (14,400 req/day free) |
+| **OpenRouter** (alternative) | Cloud LLM | $0 (free models) |
 
 ### DevOps
-- **Docker Compose** (Local development)
-- **GitHub Actions** (CI/CD)
-- **Testcontainers** (Integration testing)
+| Technology | Purpose | Cost |
+|------------|---------|------|
+| **Docker + Compose** | Local environment | $0 |
+| **GitHub Actions** | CI/CD | $0 (2000 min/month) |
+| **Supabase Free Tier** | DB + Storage | $0 (500MB + 1GB) |
+| **Railway/Render Free** | Backend hosting | $0 (500h/month) |
+| **Vercel Free** | Frontend hosting | $0 (100GB bandwidth) |
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+- **Docker & Docker Compose** (for local development)
+- **Java 21+** (if running backend natively)
+- **Node.js 22+** (if running frontend natively)
+- **pnpm** (frontend package manager)
 
-- **Java 21+** (Backend)
-- **Node.js 22+** (Frontend)
-- **Docker & Docker Compose** (Infrastructure)
-- **pnpm** (Frontend package manager)
-
-### 1. Clone the repository
+### 1. Clone & Setup
 
 ```bash
+# Clone repository
 git clone https://github.com/iamnguyenvu/airline-service-assistant.git
 cd airline-service-assistant
+
+# Copy environment files
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
 ```
 
-### 2. Start infrastructure services
+### 2. Start Infrastructure (Docker Compose)
 
 ```bash
-# Start PostgreSQL, Redis, and Ollama
-docker-compose up -d postgres redis ollama
+# Start PostgreSQL + Redis + Ollama
+docker compose up -d postgres redis ollama
 
-# Wait for services to be healthy
-docker-compose ps
-
-# Pull Ollama model (first time only)
+# Pull Ollama model (one-time, ~4.7GB)
 docker exec -it airline-ollama ollama pull llama3.1:8b
+
+# Verify services
+docker compose ps
 ```
 
-### 3. Setup Backend
+### 3. Run Backend
 
 ```bash
 cd backend
 
-# Copy environment template
-cp .env.example .env
-
-# Edit .env with your configuration (if needed)
-
-# Build and run
-./mvnw clean install
+# Build and run (Maven)
 ./mvnw spring-boot:run
+
+# Or use your IDE to run BackendApplication.java
 ```
 
-Backend will be available at `http://localhost:8080`
-- API Docs: `http://localhost:8080/swagger-ui.html`
-- Health: `http://localhost:8080/actuator/health`
+Backend will start at `http://localhost:8080`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- Actuator: `http://localhost:8080/actuator/health`
 
-### 4. Setup Frontend
+### 4. Run Frontend
 
 ```bash
 cd frontend
-
-# Install pnpm if not already installed
-npm install -g pnpm
 
 # Install dependencies
 pnpm install
 
-# Copy environment template
-cp .env.example .env.local
-
-# Edit .env.local with your Supabase credentials
-
-# Run development server
+# Start dev server
 pnpm dev
 ```
 
-Frontend will be available at `http://localhost:3000`
+Frontend will start at `http://localhost:3000`
 
-## 📦 Project Structure
+### 5. Test the Setup
+
+```bash
+# Health check
+curl http://localhost:8080/actuator/health
+
+# Test AI chat (mock)
+curl -X POST http://localhost:8080/api/chat/ask \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Find flights from SGN to HAN on 2025-12-01"}'
+```
+
+---
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Technical Specification](docs/TECH_SPEC.md) | Detailed architecture & design decisions |
+| [Deployment Guide](docs/DEPLOYMENT.md) | Step-by-step deployment instructions |
+| [Development Workflow](docs/DEVELOPMENT.md) | Local setup, testing, contribution guide |
+| [API Documentation](http://localhost:8080/swagger-ui.html) | Interactive API explorer (when running) |
+
+---
+
+## 🏗️ Architecture
 
 ```
-airline-service-assistant/
-├── backend/                    # Spring Boot application
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/io/github/nguyenvu/backend/
-│   │   │   │   ├── ai/         # AI orchestration & tools
-│   │   │   │   ├── flight/     # Flight service
-│   │   │   │   ├── ingestion/  # Data ingestion
-│   │   │   │   ├── config/     # Configuration
-│   │   │   │   └── security/   # Security config
-│   │   │   └── resources/
-│   │   │       ├── db/migration/  # Flyway migrations
-│   │   │       └── application.properties
-│   │   └── test/
-│   ├── Dockerfile
-│   └── pom.xml
-│
-├── frontend/                   # Next.js application
-│   ├── src/
-│   │   ├── app/                # App router pages
-│   │   ├── components/         # React components
-│   │   ├── lib/                # Utilities & API clients
-│   │   └── types/              # TypeScript types
-│   ├── public/
-│   ├── Dockerfile
-│   └── package.json
-│
-├── docs/                       # Documentation
-│   ├── TECH_SPEC.md           # Technical specification
-│   └── DEPLOYMENT.md          # Deployment guide
-│
-├── .github/workflows/          # CI/CD pipelines
-│   ├── backend.yml
-│   ├── frontend.yml
-│   └── docker.yml
-│
-├── docker-compose.yml          # Local development setup
-└── README.md                   # This file
+┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
+│   Next.js UI    │◄────►│  Spring Boot API │◄────►│  PostgreSQL+PG  │
+│   (Port 3000)   │      │   (Port 8080)    │      │  (Port 5432)    │
+└────────┬────────┘      └────────┬─────────┘      └─────────────────┘
+         │                        │                          │
+         │                        │                          │
+         ▼                        ▼                          ▼
+┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
+│  Supabase Auth  │      │   Redis Cache    │      │   Ollama LLM    │
+│  + Storage      │      │   (Port 6379)    │      │  (Port 11434)   │
+└─────────────────┘      └──────────────────┘      └─────────────────┘
 ```
+
+### Data Flow
+1. **User Query** → Frontend → Backend API
+2. **AI Orchestrator** → Parse intent → Select tools
+3. **Tools Execute** → Search DB / RAG / Live API
+4. **Response Assembly** → Citations + Explanations
+5. **UI Render** → Breakdown scores + badges
+
+---
 
 ## 🧪 Testing
 
-### Backend Tests
-
 ```bash
+# Backend unit + integration tests
 cd backend
-./mvnw test                    # Unit tests
-./mvnw verify                  # Integration tests with Testcontainers
-```
+./mvnw test
 
-### Frontend Tests
+# Backend with coverage
+./mvnw verify
 
-```bash
+# Frontend tests (when implemented)
 cd frontend
-pnpm lint                      # ESLint check
-pnpm format                    # Prettier formatting
+pnpm test
+
+# E2E tests (when implemented)
+pnpm test:e2e
 ```
 
-## 📚 API Documentation
+---
 
-Once the backend is running, visit:
-- **Swagger UI**: http://localhost:8080/swagger-ui.html
-- **OpenAPI JSON**: http://localhost:8080/api-docs
+## 🚢 Deployment
 
-### Key Endpoints
+### Option 1: All Free (Recommended for MVP)
+```bash
+# Frontend → Vercel
+vercel --prod
 
-```
-POST   /api/chat/ask              # AI chat with tool-calling
-GET    /api/flights/search        # Search flights
-POST   /api/booking/confirm       # Create booking
-GET    /api/prefs/{userId}        # Get user preferences
-PUT    /api/prefs/{userId}        # Update preferences
-```
+# Backend → Railway
+railway up
 
-## 🌍 Deployment Options
-
-### Free Tier Options (Zero Cost)
-
-#### Frontend
-- **Vercel** (Recommended): Automatic deployments from GitHub
-- **Netlify**: Alternative with similar features
-
-#### Backend
-- **Railway**: 500h/month free tier
-- **Render**: Free tier with sleep on inactivity
-- **Fly.io**: Free tier with resource limits
-
-#### Database
-- **Supabase**: 500MB database + 1GB storage (free)
-- **Neon**: 3GB database (free tier)
-
-#### AI Options
-1. **Ollama** (Self-hosted, requires VPS/local)
-2. **Groq API** (Free tier: 14,400 req/day)
-3. **OpenRouter** (Free models available)
-
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
-
-## 🔐 Environment Variables
-
-### Backend (.env)
-
-```env
-DATABASE_URL=jdbc:postgresql://localhost:5432/airline_db
-DATABASE_USERNAME=postgres
-DATABASE_PASSWORD=postgres
-REDIS_HOST=localhost
-REDIS_PORT=6379
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.1:8b
-SUPABASE_JWT_ISSUER=https://your-project.supabase.co/auth/v1
-SUPABASE_JWKS_URI=https://your-project.supabase.co/auth/v1/jwks
+# Database → Supabase (already setup)
 ```
 
-### Frontend (.env.local)
+### Option 2: Self-Hosted (Full Control)
+```bash
+# Build all services
+docker compose --profile full up --build -d
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-NEXT_PUBLIC_API_URL=http://localhost:8080
+# Access at:
+# - Frontend: http://localhost:3000
+# - Backend: http://localhost:8080
 ```
+
+See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed instructions.
+
+---
+
+## 🗂️ Project Structure
+
+```
+airline-service-assistant/
+├── backend/                    # Spring Boot backend
+│   ├── src/main/java/io/github/nguyenvu/backend/
+│   │   ├── ai/                # AI orchestration
+│   │   ├── flight/            # Flight service
+│   │   ├── ingestion/         # Data ingestion
+│   │   └── config/            # Spring configuration
+│   ├── src/main/resources/
+│   │   ├── db/migration/      # Flyway migrations
+│   │   └── application.properties
+│   ├── Dockerfile
+│   └── pom.xml
+├── frontend/                   # Next.js frontend
+│   ├── src/
+│   │   ├── app/               # App Router pages
+│   │   ├── components/        # React components
+│   │   ├── lib/               # Utilities & clients
+│   │   └── hooks/             # Custom React hooks
+│   ├── public/
+│   ├── Dockerfile
+│   └── package.json
+├── docs/                       # Documentation
+│   ├── TECH_SPEC.md           # Technical specification
+│   ├── DEPLOYMENT.md          # Deployment guide
+│   └── DEVELOPMENT.md         # Dev workflow
+├── .github/workflows/          # CI/CD pipelines
+│   ├── backend-ci.yml
+│   ├── frontend-ci.yml
+│   └── docker-publish.yml
+├── docker-compose.yml          # Local development
+└── README.md                   # This file
+```
+
+---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+We welcome contributions! Please see [DEVELOPMENT.md](docs/DEVELOPMENT.md) for:
+- Code style guidelines
+- Commit message conventions
+- PR process
+- Local development setup
 
+### Quick Contribution Guide
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+---
+
+## 📊 Roadmap
+
+### ✅ Phase 1: MVP (Completed)
+- [x] Backend scaffolding with Spring Boot + Spring AI
+- [x] Database schema with Flyway migrations
+- [x] Docker Compose for local dev
+- [x] CI/CD pipelines
+- [x] Frontend scaffolding with Next.js
+
+### 🔨 Phase 2: Core Features (In Progress)
+- [ ] Flight search implementation
+- [ ] AI chat with tool calling
+- [ ] Policy RAG with pgvector
+- [ ] Mock booking with PDF generation
+- [ ] User preferences
+
+### 🚀 Phase 3: Advanced Features (Planned)
+- [ ] Live flight status integration
+- [ ] IRROPS detection & rebooking
+- [ ] Multi-airline support (VietJet, Bamboo, etc.)
+- [ ] Mobile app (React Native)
+- [ ] Admin dashboard
+
+### 🌟 Phase 4: Production Ready (Future)
+- [ ] Load testing & optimization
+- [ ] Multi-language support expansion
+- [ ] Payment integration
+- [ ] Real-time notifications
+- [ ] Analytics dashboard
+
+---
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+---
+
 ## 🙏 Acknowledgments
 
-- [Spring AI](https://docs.spring.io/spring-ai/reference/) - AI integration framework
+- [Spring AI](https://docs.spring.io/spring-ai/reference/) - AI orchestration framework
 - [Ollama](https://ollama.ai/) - Local LLM runtime
-- [Supabase](https://supabase.com/) - Backend as a Service
-- [shadcn/ui](https://ui.shadcn.com/) - UI components
+- [Supabase](https://supabase.com/) - Backend-as-a-Service
+- [shadcn/ui](https://ui.shadcn.com/) - Beautiful UI components
 - [pgvector](https://github.com/pgvector/pgvector) - Vector similarity search
 
-## 📞 Contact
+---
 
-Nguyen Vu - [@iamnguyenvu](https://github.com/iamnguyenvu)
+## 📬 Contact
+
+**Nguyen Vu** - [@iamnguyenvu](https://github.com/iamnguyenvu)
 
 Project Link: [https://github.com/iamnguyenvu/airline-service-assistant](https://github.com/iamnguyenvu/airline-service-assistant)
 
 ---
 
-⭐ If you find this project useful, please consider giving it a star!
+<div align="center">
+
+Made with ❤️ by [Nguyen Vu](https://github.com/iamnguyenvu)
+
+⭐ Star this repo if you find it helpful!
+
+</div>
