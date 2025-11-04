@@ -73,5 +73,3 @@ public interface FlightRawRepository extends JpaRepository<FlightRaw, Long> {
         return findBySnapshot(snapshot, pageable).getContent();
     }
 }
-
-}
