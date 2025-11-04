@@ -13,113 +13,92 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.util.List;
 
-public interface FlightSnapshotRepository extends JpaRepository<FlightSnapshot, Long>, JpaSpecificationExecutor<FlightSnapshot> {
-    /**
-     * Find flight snapshots by departure IATA, arrival IATA, and snapshot date.
-     */
-    List<FlightSnapshot> findByDepIataAndArrIataAndSnapshotDate(String depIata,
-                                                                String arrIata,
-                                                                LocalDate snapshotDate);
+/**
+ * Repository for FlightSnapshot entity.
+ * Provides queries for flight search, price analysis, and data cleanup.
+ */
+public interface FlightSnapshotRepository extends JpaRepository<FlightSnapshot, Long>, 
+                                                    JpaSpecificationExecutor<FlightSnapshot> {
+    
+    // === Basic Queries ===
+    
+    /** Find flights by route and snapshot date */
+    List<FlightSnapshot> findByDepIataAndArrIataAndSnapshotDate(
+            String depIata, String arrIata, LocalDate snapshotDate);
 
-    /**
-     * Find flight snapshots by departure IATA, arrival IATA, snapshot date, and carrier.
-     */
-    List<FlightSnapshot> findByDepIataAndArrIataAndSnapshotDateAndCarrier(String depIata,
-                                                                          String arrIata,
-                                                                          LocalDate snapshotDate,
-                                                                          String carrier);
+    /** Find flights by route, snapshot date, and carrier */
+    List<FlightSnapshot> findByDepIataAndArrIataAndSnapshotDateAndCarrier(
+            String depIata, String arrIata, LocalDate snapshotDate, String carrier);
 
-    /**
-     * Find flight snapshots by departure IATA, arrival IATA, and date range.
-     */
-    @Query("""
-                SELECT f FROM FlightSnapshot f
-                WHERE f.depIata = :depIata
-                AND f.arrIata = :arrIata
-                AND f.snapshotDate BETWEEN :startDate AND :endDate
-                ORDER BY f.depTime
-            """)
-    List<FlightSnapshot> findFLightByDateRange(@Param("depIata") String depIata,
-                                               @Param("arrIata") String arrIata,
-                                               @Param("startDate") LocalDate startDate,
-                                               @Param("endDate") LocalDate endDate);
+    /** Check if flights exist for route and date */
+    boolean existsByDepIataAndArrIataAndSnapshotDate(
+            String depIata, String arrIata, LocalDate snapshotDate);
 
-    /*
-     * Find the top 5 cheapest flight snapshots by departure IATA, arrival IATA, and snapshot date.
-     * Replaced invalid JPQL (LIMIT) with a derived query method.
-     */
+    /** Count flights for route and date */
+    long countByDepIataAndArrIataAndSnapshotDate(
+            String depIata, String arrIata, LocalDate snapshotDate);
+
+    // === Price-Based Queries ===
+    
+    /** Find top 5 cheapest flights for route and date */
     List<FlightSnapshot> findTop5ByDepIataAndArrIataAndSnapshotDateOrderByPriceCentsAsc(
-            String depIata, String arrIata, LocalDate date
-    );
+            String depIata, String arrIata, LocalDate date);
 
-    /**
-     * Find flight snapshots by departure IATA, arrival IATA, and snapshot date, ordered by price ascending.
-     */
+    /** Find all flights sorted by price (cheapest first) */
     List<FlightSnapshot> findByDepIataAndArrIataAndSnapshotDateOrderByPriceCentsAsc(
-            String depIata, String arrIata, LocalDate date
-    );
+            String depIata, String arrIata, LocalDate date);
 
-    /**
-     * Find flight snapshots by departure IATA, arrival IATA, snapshot date, and maximum price.
-     */
+    /** Find flights under max price */
     List<FlightSnapshot> findByDepIataAndArrIataAndSnapshotDateAndPriceCentsLessThanEqual(
-            String depIata, String arrIata, LocalDate snapshotDate, Long priceCents
-    );
+            String depIata, String arrIata, LocalDate snapshotDate, Long maxPriceCents);
 
-    /**
-     * Count flight snapshots by departure IATA, arrival IATA, and snapshot date.
-     */
-    long countByDepIataAndArrIataAndSnapshotDate(String depIata, String arrIata, LocalDate snapshotDate);
+    // === Date Range Queries ===
+    
+    /** Find flights within date range */
+    @Query("""
+        SELECT f FROM FlightSnapshot f
+        WHERE f.depIata = :depIata AND f.arrIata = :arrIata
+          AND f.snapshotDate BETWEEN :startDate AND :endDate
+        ORDER BY f.depTime
+        """)
+    List<FlightSnapshot> findFlightsByDateRange(
+            @Param("depIata") String depIata,
+            @Param("arrIata") String arrIata,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate);
 
-    /**
-     * Check existence of flight snapshots by departure IATA, arrival IATA, and snapshot date.
-     */
-    boolean existsByDepIataAndArrIataAndSnapshotDate(String depIata, String arrIata, LocalDate snapshotDate);
+    // === Analytics Queries ===
+    
+    /** Get distinct carriers for route */
+    @Query("SELECT DISTINCT f.carrier FROM FlightSnapshot f WHERE f.depIata = :depIata AND f.arrIata = :arrIata")
+    List<String> findDistinctCarriersByRoute(@Param("depIata") String depIata, @Param("arrIata") String arrIata);
 
-    /*
-     * Delete flight snapshots older than the specified cutoff date.
-     */
+    /** Get price statistics (min, avg, max) for route and date */
+    @Query("""
+        SELECT MIN(f.priceCents) AS minPrice,
+               AVG(f.priceCents) AS avgPrice,
+               MAX(f.priceCents) AS maxPrice
+        FROM FlightSnapshot f
+        WHERE f.depIata = :depIata AND f.arrIata = :arrIata
+          AND f.snapshotDate = :snapshotDate
+        """)
+    PriceStatistics getPriceStatistics(
+            @Param("depIata") String depIata,
+            @Param("arrIata") String arrIata,
+            @Param("snapshotDate") LocalDate snapshotDate);
+
+    // === Data Management ===
+    
+    /** Delete old snapshots (for data retention policy) */
     @Modifying
     @Query("DELETE FROM FlightSnapshot f WHERE f.snapshotDate < :cutoffDate")
     int deleteBySnapshotDateBefore(@Param("cutoffDate") LocalDate cutoffDate);
 
-    /*
-     * Find distinct carriers for a given route (departure and arrival IATA codes).
-     */
-    @Query("""
-            SELECT DISTINCT f.carrier FROM FlightSnapshot f
-            WHERE f.depIata = :depIata AND f.arrIata = :arrIata
-            """)
-    List<String> findDistinctCarrierByRoute(
-            @Param("depIata") String depIata,
-            @Param("arrIata") String arrIata
-    );
-
-    /*
-     * Get price statistics (min, avg, max) for flights on a given route and snapshot date.
-     */
-    @Query("""
-                SELECT
-                   MIN(f.priceCents) AS minPrice,
-                   AVG(f.priceCents) AS avgPrice,
-                   MAX(f.priceCents) AS maxPrice
-               FROM FlightSnapshot f
-               WHERE f.depIata = :depIata
-               AND f.arrIata = :arrIata
-               AND f.snapshotDate = :snapshotDate
-            """)
-    PriceStatistics getPriceStatistics(
-            @Param("depIata") String depIata,
-            @Param("arrIata") String arrIata,
-            @Param("snapshotDate") LocalDate snapshotDate
-    );
-
-    /**
-     * Convenience method: build a Specification from `FlightSearchCriteria` and run a paged search.
-     */
+    // === Specification-Based Search ===
+    
+    /** Search with complex criteria (uses FlightSnapshotSpecifications) */
     default Page<FlightSnapshot> search(FlightSearchCriteria criteria, Pageable pageable) {
         return findAll(FlightSnapshotSpecifications.buildFrom(criteria), pageable);
     }
-
 }
 
