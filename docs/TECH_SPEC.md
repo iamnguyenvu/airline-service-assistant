@@ -36,6 +36,11 @@
 
 **Backend**: Spring Boot 3.5.x + Spring AI (ChatClient + Tool Calling).
 
+**LLM Strategy (100% Free)**:
+- **Production/Cloud**: Gemini 2.5 Flash API (Free tier: 15 RPM, 1M TPM, 1500 RPD)
+- **Local Development**: Ollama with Llama 3.1 8B (self-hosted, no cost)
+- **Embedding**: Ollama nomic-embed-text (384-dim, self-hosted, no cost)
+
 **Modules**:
 - ai-orchestrator (POST /api/chat/ask)
 - flight-service (GET /api/flights/search, POST /api/booking/confirm, prefs)
@@ -192,59 +197,66 @@ users_public(
 **Option 1: Ollama (Local, 100% Free)**
 - Spring AI tích hợp Ollama: chạy Llama 3.1 8B hoặc Mistral 7B
 - Embeddings: sentence-transformers (all-MiniLM-L6-v2) local REST API hoặc ONNX Runtime
-- RAM requirement: 8GB+ cho 7B model, 16GB+ cho 8B model
+## 10) AI/LLM Strategy (100% Free)
 
-**Option 2: Free-tier APIs**
-- **Groq**: llama-3.1-8b-instant (free tier: 30 req/min, 14,400/day)
-- **OpenRouter**: free models (gpt-3.5-turbo-instruct, llama-3.1-8b-free)
-- **Together AI**: free credits ($25 signup bonus)
+### LLM Options
 
-**Option 3: Hybrid**
-- Embeddings local (free, fast)
-- LLM via free API (reliable, no GPU needed)
+**Option 1: Google Gemini API (Recommended for Production)**
+- **Model**: Gemini 2.5 Flash (fast, efficient, latest)
+- **Free Tier**: 
+  - 15 requests/minute (RPM)
+  - 1 million tokens/minute (TPM)
+  - 1,500 requests/day (RPD)
+  - No credit card required
+- **Pros**: Fast, reliable, multimodal support, function calling, latest model
+- **Cons**: Rate limits (sufficient for MVP/small apps)
+- **Setup**: Get API key at https://aistudio.google.com/app/apikey
+
+**Option 2: Ollama Local (Recommended for Development)**
+- **Model**: Llama 3.1 8B (or 7B for lower RAM)
+- **Cost**: 100% free, self-hosted
+- **RAM**: 8GB+ for 7B, 16GB+ for 8B
+- **Pros**: No rate limits, privacy, offline support
+- **Cons**: Requires GPU/CPU, slower inference
+- **Setup**: `ollama pull llama3.1:8b`
+
+**Embedding (Always Free)**
+- **Ollama nomic-embed-text**: 384-dim, self-hosted, no API cost
+- **Alternative**: Gemini text-embedding-004 (free tier included)
+
+**Deployment Strategy**
+- **Development**: Ollama local (free, fast iteration)
+- **Production**: Gemini API (free tier, reliable)
+- **Fallback**: Switch to Ollama if Gemini rate limits hit
+
+### Cost Breakdown (100% Free)
+
+| Service | Free Tier | Usage Estimate |
+|---------|-----------|----------------|
+| Gemini 2.5 Flash | 15 RPM, 1M TPM, 1.5k RPD | ~500-1000 req/day |
+| Ollama (local) | Unlimited | Dev only |
+| Supabase DB | 500MB | ~300MB (3mo data) |
+| Supabase Storage | 1GB | ~500MB (PDFs) |
+| Vercel Hosting | 100GB bandwidth | ~10GB/month |
+| Railway Backend | 500h/month | ~730h (always-on) |
+
+**Total Monthly Cost: $0** (all within free tiers)
 
 ### Observability & Quality
 
 - **OpenTelemetry** (traces), **Prometheus/Grafana** (metrics)
 - **Logging**: JSON + Correlation-ID
-- **Testing**: JUnit 5, Testcontainers, RestAssured, ESLint/Prettier
+- **Testing**: JUnit 5, Testcontainers, RestAssured
 
 ### DevOps (Zero-Cost)
 
 - **Docker Compose** (local): Postgres + Redis + Ollama
-- **Flyway**: quản lý migration DB
-- **GitHub Actions**: CI/CD miễn phí (2000 phút/tháng)
-- **Hosting Options**:
-  - Backend: Railway (free tier: 500h/month), Render (free tier), Fly.io (free tier)
-  - Frontend: Vercel (free tier), Netlify (free tier)
-  - Database: Supabase (free tier: 500MB), Neon (free tier: 3GB)
-
-### Cost Breakdown (Free Tier Usage)
-
-| Service | Free Tier | Usage |
-|---------|-----------|-------|
-| Supabase DB | 500MB | ~300MB (3 months data) |
-| Supabase Storage | 1GB | ~500MB (PDFs, policies) |
-| Groq API | 14,400 req/day | ~1,000 req/day avg |
-| Vercel | 100GB bandwidth | ~10GB/month |
-| Railway/Render | 500h/month | ~730h/month (always-on) |
-| GitHub Actions | 2000 min/month | ~200 min/month |
-
-**Total Monthly Cost: $0** (within free tiers)
-
-## Deployment Recommendations
-
-### MVP/Testing (All Free)
-- Frontend: Vercel
-- Backend: Railway or Render
-- Database: Supabase free tier
-- AI: Groq free API
-
-### Production (Minimal Cost)
-- Frontend: Vercel (may need Pro: $20/month for team)
-- Backend: Railway Hobby ($5/month) or Render ($7/month)
-- Database: Supabase Pro ($25/month) or Neon Scale ($19/month)
-- AI: Groq paid tier ($0.10/1M tokens) or self-host Ollama
+- **Flyway**: Database migration management
+- **GitHub Actions**: CI/CD (2000 min/month free)
+- **Hosting**:
+  - Backend: Railway (500h/month free) or Render
+  - Frontend: Vercel (free tier)
+  - Database: Supabase (free tier: 500MB)
 
 ### Self-Hosted (Zero-Cost, requires hardware)
 - VPS: Oracle Cloud Free Tier (ARM instance, 24GB RAM)

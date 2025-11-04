@@ -79,10 +79,15 @@
 ### AI & Data
 | Technology | Purpose | Cost |
 |------------|---------|------|
-| **Ollama** (Llama 3.1 8B) | Local LLM | $0 (self-hosted) |
-| **sentence-transformers** | Embeddings | $0 (local) |
-| **Groq API** (alternative) | Cloud LLM | $0 (14,400 req/day free) |
-| **OpenRouter** (alternative) | Cloud LLM | $0 (free models) |
+| **Gemini 2.5 Flash API** | Production LLM | $0 (free tier: 15 RPM, 1M TPM, 1500 RPD) |
+| **Ollama** (Llama 3.1 8B) | Local LLM (dev) | $0 (self-hosted) |
+| **Ollama nomic-embed-text** | Embeddings (384-dim) | $0 (self-hosted) |
+| **pgvector** | Vector similarity search | $0 (PostgreSQL extension) |
+
+**Why 100% Free?**
+- Gemini 2.5 Flash free tier: 15 req/min, 1M tokens/min, 1500 req/day - perfect for MVP
+- Ollama local: No API costs, unlimited requests for development
+- Switch between Gemini (cloud) and Ollama (local) via config
 
 ### DevOps
 | Technology | Purpose | Cost |
