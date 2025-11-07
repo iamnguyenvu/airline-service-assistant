@@ -34,12 +34,18 @@ public class UserPreferences {
 
     // JPA doesn't support basic String[] mapping; use ElementCollection -> separate table
     @ElementCollection
-    @CollectionTable(name = "user_preferences_preferred_airlines", joinColumns = @JoinColumn(name = "user_id"))
+    @CollectionTable(
+        name = "user_preferences_preferred_airlines",
+        joinColumns = @JoinColumn(name = "user_id", referencedColumnName = "user_id")
+    )
     @Column(name = "airline")
     private List<String> preferredAirlines;
 
     @ElementCollection
-    @CollectionTable(name = "user_preferences_avoid_airlines", joinColumns = @JoinColumn(name = "user_id"))
+    @CollectionTable(
+        name = "user_preferences_avoid_airlines",
+        joinColumns = @JoinColumn(name = "user_id", referencedColumnName = "user_id")
+    )
     @Column(name = "airline")
     private List<String> avoidAirlines;
 

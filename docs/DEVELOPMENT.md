@@ -162,6 +162,13 @@ EOF
 - Add indexes for foreign keys
 - Document breaking changes
 
+**Latest Migrations:**
+- **V8** (Nov 2025): User preferences airline tables (ElementCollection)
+  - `user_preferences_preferred_airlines` - Preferred airlines list
+  - `user_preferences_avoid_airlines` - Avoid airlines list
+  - UUID foreign keys with CASCADE delete
+  - Indexes on user_id for performance
+
 ### 3. API Development
 
 **Backend (Spring Boot):**

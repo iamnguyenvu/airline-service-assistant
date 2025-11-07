@@ -24,9 +24,8 @@ public class OpenAPIConfig {
                     
                     Features:
                     - Intelligent flight search with multi-factor ranking
-                    - AI chat with function calling (Gemini 2.5 Flash)
+                    - AI chat with function calling (Gemini)
                     - Policy lookup with RAG (pgvector)
-                    - Mock bookings with PNR generation
                     - Route analytics and price trends
                     """)
                 .contact(new Contact()
