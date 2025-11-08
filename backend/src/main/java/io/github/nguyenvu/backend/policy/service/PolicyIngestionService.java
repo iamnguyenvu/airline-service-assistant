@@ -1,5 +1,6 @@
 package io.github.nguyenvu.backend.policy.service;
 
+import io.github.nguyenvu.backend.policy.util.ChunkPostProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
@@ -9,32 +10,40 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PolicyIngestionService {
-
     private final VectorStore vectorStore;
+    private final TokenTextSplitter splitter = new TokenTextSplitter();
 
-    /**
-     * Ingest a raw policy text into the vector store with metadata.
-     * Metadata keys can include: airline_code, doc_type, source_url, version_tag
-     */
-    public void ingest(String rawText, Map<String, Object> metadata) {
+    public void ingestRawTest(String rawText, Map<String, Object> meta) {
         if (rawText == null || rawText.isBlank()) {
-            throw new IllegalArgumentException("rawText is required");
+            throw new IllegalArgumentException("Raw text cannot be null or blank");
         }
+        // Normalize text
+        String normalizedText = rawText
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+                .replace("\u00A0", " ")
+                .trim();
 
-        var meta = metadata != null ? metadata : Map.of();
-        log.info("Ingesting policy text (len={}) with meta={}", rawText.length(), meta);
+        var metadata = meta != null ? meta : Map.of();
+        var doc = new Document(normalizedText, (Map<String, Object>) metadata);
 
-        // Split into chunks for better retrieval
-        var splitter = new TokenTextSplitter(800, 200);
-        List<Document> chunks = splitter.apply(List.of(new Document(rawText, meta)));
+        // Split document into chunks
+        List<Document> chunks = splitter.apply(List.of(doc));
+        ChunkPostProcessor chunkPostProcessor = new ChunkPostProcessor(22, 2);
 
+        Predicate<String> garbage = line -> line.trim()
+                .matches("(?i)^(confidential|watermark|footer.*|header.*)$");
+
+        List<Document> cleaned = chunkPostProcessor.mergeAndFilter(chunks, garbage);
+
+        // Ingest chunks into vector store
         vectorStore.add(chunks);
-        log.info("Ingested {} chunks into vector store", chunks.size());
+        log.info("Ingested {} chunks into vector store, metadata={}", chunks.size(), metadata);
     }
 }
-
