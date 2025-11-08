@@ -58,12 +58,39 @@ public class FlightSearchController {
                 @Parameter(description = "Page number (0-indexed)") int page,
             @RequestParam(defaultValue = "20") 
                 @Parameter(description = "Page size (max 100)") int size) {
-        
-        log.info("POST /api/flights/search - criteria: {}, page: {}, size: {}", 
+
+        log.info("POST /api/flights/search - criteria: {}, page: {}, size: {}",
             criteria, page, size);
-        
+
         size = Math.min(size, 100);
-        
+
+        // Normalize and validate IATA codes (controller-level)
+        if (criteria.getDepIata() != null) {
+            criteria.setDepIata(criteria.getDepIata().trim().toUpperCase());
+        }
+        if (criteria.getArrIata() != null) {
+            criteria.setArrIata(criteria.getArrIata().trim().toUpperCase());
+        }
+        if (criteria.getDepIata() == null || criteria.getArrIata() == null
+                || criteria.getDepIata().length() != 3 || criteria.getArrIata().length() != 3) {
+            throw new IllegalArgumentException("depIata and arrIata must be 3-letter IATA codes");
+        }
+
+        // Validate date presence and ordering
+        if (criteria.getSnapshotDate() == null && criteria.getStartDate() == null) {
+            throw new IllegalArgumentException("Either snapshotDate or startDate is required");
+        }
+        if (criteria.getStartDate() != null && criteria.getEndDate() != null
+                && criteria.getStartDate().isAfter(criteria.getEndDate())) {
+            throw new IllegalArgumentException("startDate must be before or equal to endDate");
+        }
+
+        // Validate price range
+        if (criteria.getMinPriceCents() != null && criteria.getMaxPriceCents() != null
+                && criteria.getMinPriceCents() > criteria.getMaxPriceCents()) {
+            throw new IllegalArgumentException("minPriceCents must be <= maxPriceCents");
+        }
+
         FlightSearchResult result = flightSearchService.search(criteria, page, size);
         return ResponseEntity.ok(result);
     }
