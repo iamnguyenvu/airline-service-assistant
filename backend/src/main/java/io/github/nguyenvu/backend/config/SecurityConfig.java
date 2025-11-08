@@ -44,7 +44,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().denyAll()
             )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt());
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(
+                    jwt -> {}
+            ));
         return http.build();
     }
 }
