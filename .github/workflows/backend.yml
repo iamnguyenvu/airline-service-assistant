@@ -33,13 +33,13 @@ jobs:
         run: rm -rf ~/.m2/repository/org/projectlombok
 
       - name: Build with Maven
-        run: mvn clean compile -B -U -e -X
+        run: ./mvnw clean compile -B -U -e -X
 
       - name: Run tests
-        run: mvn test -B -e
+        run: ./mvnw test -B -e
 
       - name: Package application
-        run: mvn package -DskipTests -B -e
+        run: ./mvnw package -DskipTests -B -e
 
       - name: Upload artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
