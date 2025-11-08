@@ -165,8 +165,32 @@ public class FlightRankingService {
      * TODO: Add CO2 calculation to FlightSnapshot based on duration.
      */
     private double calculateCO2Score(FlightSnapshot flight, RouteStatsDaily stats) {
-        // CO2 not available in FlightSnapshot yet
-        return 50.0; // Neutral score until CO2 data is added
+        double co2EstimateKg = estimateCO2Kg(flight);
+        if (co2EstimateKg <= 0) return 50.0;
+
+        Double avgCo2 = (stats != null && stats.getAvgCo2Kg() != null)
+            ? stats.getAvgCo2Kg().doubleValue() : null;
+
+        if (avgCo2 == null || avgCo2 <= 0) {
+            return Math.max(20.0, Math.min(80.0, 1000.0 / (20.0 + co2EstimateKg)));
+        }
+
+        double ratio = co2EstimateKg / avgCo2;
+        if (ratio <= 1.0) {
+            return 85.0 + (15.0 * (1.0 - ratio));
+        } else {
+            double penalty = Math.min(40.0, 25.0 * (ratio - 1.0));
+            return Math.max(30.0, 85.0 - penalty);
+        }
+    }
+
+    private double estimateCO2Kg(FlightSnapshot flight) {
+        if (flight.getDurationMin() == null || flight.getDurationMin() <= 0) return 0.0;
+        double hours = flight.getDurationMin() / 60.0;
+        double distanceKm = hours * 800.0; // avg cruise speed
+        double litersPerKm = 0.04; // approx fuel per passenger-km
+        double kgPerLiter = 2.52; // CO2 kg per liter
+        return distanceKm * litersPerKm * kgPerLiter;
     }
 
     /**
