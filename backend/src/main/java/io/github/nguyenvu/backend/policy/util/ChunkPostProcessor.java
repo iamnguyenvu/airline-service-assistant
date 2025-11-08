@@ -1,6 +1,5 @@
 package io.github.nguyenvu.backend.policy.util;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.ai.document.Document;
 
 import java.util.ArrayList;
@@ -9,10 +8,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
-@RequiredArgsConstructor
 public class ChunkPostProcessor {
     private final int minWords;
     private final int maxMerges;
+    
+    public ChunkPostProcessor(int minWords, int maxMerges) {
+        this.minWords = minWords;
+        this.maxMerges = maxMerges;
+    }
 
     public List<Document> mergeAndFilter(List<Document> chunks,
                                          Predicate<String> isGarbageLine) {

@@ -2,7 +2,8 @@ package io.github.nguyenvu.backend.policy.service;
 
 import io.github.nguyenvu.backend.policy.util.ChunkPostProcessor;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -14,8 +15,9 @@ import java.util.function.Predicate;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class PolicyIngestionService {
+    private static final Logger log = LoggerFactory.getLogger(PolicyIngestionService.class);
+    
     private final VectorStore vectorStore;
     private final TokenTextSplitter splitter = new TokenTextSplitter();
 
