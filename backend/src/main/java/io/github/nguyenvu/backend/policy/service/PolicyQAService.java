@@ -75,9 +75,9 @@ public class PolicyQAService {
             return "Xin lỗi, tôi chưa có đủ dữ liệu để trả lời câu hỏi này.";
         }
         // Deduplicate documents
-        List<Document> dedup = dedupByMeta(rawDocs);
+        List<Document> dedupe = dedupeByMeta(rawDocs);
         // Take top N documents
-        List<Document> topDocs = dedup.stream()
+        List<Document> topDocs = dedupe.stream()
                 .limit(MAX_CONTEXT_DOCS)
                 .map(this::truncateDocument)
                 .toList();
@@ -109,14 +109,12 @@ public class PolicyQAService {
                 .content();
     }
 
-    private List<Document> dedupByMeta(List<Document> docs) {
+    private List<Document> dedupeByMeta(List<Document> docs) {
         Set<String> seen = new HashSet<>();
         List<Document> out = new ArrayList<>();
         for(Document doc : docs) {
             Map<String, Object> m = doc.getMetadata();
-            String key = (m != null)
-                    ? (sv(m.get("source")) + "|" + sv(m.get("page")) + "|" + sv(m.get("section")))
-                    : "";
+            String key = sv(m.get("source")) + "|" + sv(m.get("page")) + "|" + sv(m.get("section"));
             if (key.isBlank()) key = Integer.toHexString(Objects.hashCode(doc.getFormattedContent()));
             if (seen.add(key)) out.add(doc);
         }
@@ -128,8 +126,8 @@ public class PolicyQAService {
     }
 
     private Document truncateDocument(Document document) {
-        String content = document.getFormattedContent();
-        if(content ==  null) content = "";
+        String content = document.getText();
+        assert content != null;
         if(content.length() > MAX_DOC_CHARS) content = content.substring(0, MAX_DOC_CHARS) + " ...";
         return new Document(content, document.getMetadata());
     }
