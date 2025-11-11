@@ -64,12 +64,46 @@ public class AviationstackFlightIngestionProvider implements FlightIngestionProv
         return out;
     }
 
-    private List<FlightSnapshot> fetchRoute(LocalDate date, String depIata, String arrIata) {
-        String url = String.format("%s/flights?access_key=%s&dep_iata=%s&arr_iata=%s&flight_status=scheduled&flight_date=%s",
+    @Override
+    public List<FlightSnapshot> fetchRoute(LocalDate date, String depIata, String arrIata) {
+        // Attempt 1: with status+date (may be restricted on some plans)
+        String url1 = String.format("%s/flights?access_key=%s&dep_iata=%s&arr_iata=%s&flight_status=scheduled&flight_date=%s",
                 baseUrl, apiKey, depIata, arrIata, date);
-        ResponseEntity<JsonNode> resp = restTemplate.getForEntity(url, JsonNode.class);
+        List<FlightSnapshot> res1 = fetchAndMap(url1, date, depIata, arrIata);
+        if (!res1.isEmpty()) return res1;
+        // Attempt 2: without status, still with date (some plans still allow date filter)
+        String url2 = String.format("%s/flights?access_key=%s&dep_iata=%s&arr_iata=%s&flight_date=%s",
+                baseUrl, apiKey, depIata, arrIata, date);
+        List<FlightSnapshot> res2 = fetchAndMap(url2, date, depIata, arrIata);
+        if (!res2.isEmpty()) return res2;
+        // Attempt 3: realtime only (free plan supports real-time flights)
+        String url3 = String.format("%s/flights?access_key=%s&dep_iata=%s&arr_iata=%s",
+                baseUrl, apiKey, depIata, arrIata);
+        return fetchAndMap(url3, date, depIata, arrIata);
+    }
+
+    private List<FlightSnapshot> fetchAndMap(String url, LocalDate date, String depIata, String arrIata) {
+        ResponseEntity<JsonNode> resp;
+        try {
+            resp = restTemplate.getForEntity(url, JsonNode.class);
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            log.warn("Aviationstack HTTP error for route {}-{} url {}: {} {}", depIata, arrIata, url, e.getStatusCode(), e.getResponseBodyAsString());
+            return List.of();
+        } catch (Exception e) {
+            log.warn("Aviationstack request failed for route {}-{} url {}: {}", depIata, arrIata, url, e.getMessage());
+            return List.of();
+        }
         JsonNode root = resp.getBody();
-        if (root == null || root.get("data") == null || !root.get("data").isArray()) {
+        if (root == null) {
+            log.warn("Aviationstack empty body for route {}-{} date {} url {}", depIata, arrIata, date, url);
+            return List.of();
+        }
+        if (root.has("error")) {
+            log.warn("Aviationstack error for route {}-{} date {}: {}", depIata, arrIata, date, root.get("error"));
+            return List.of();
+        }
+        if (root.get("data") == null || !root.get("data").isArray()) {
+            log.info("Aviationstack no data array for route {}-{} date {} url {}", depIata, arrIata, date, url);
             return List.of();
         }
         List<FlightSnapshot> list = new ArrayList<>();
@@ -84,8 +118,16 @@ public class AviationstackFlightIngestionProvider implements FlightIngestionProv
         try {
             String carrier = text(n, "airline", "iata");
             String flightNo = text(n, "flight", "iata");
-            String depTimeStr = text(n, "departure", "scheduled");
-            String arrTimeStr = text(n, "arrival", "scheduled");
+            String depTimeStr = coalesce(
+                    text(n, "departure", "scheduled"),
+                    text(n, "departure", "estimated"),
+                    text(n, "departure", "actual")
+            );
+            String arrTimeStr = coalesce(
+                    text(n, "arrival", "scheduled"),
+                    text(n, "arrival", "estimated"),
+                    text(n, "arrival", "actual")
+            );
             LocalDateTime depTime = parseIso(depTimeStr);
             LocalDateTime arrTime = parseIso(arrTimeStr);
             if (depTime == null || arrTime == null) return null;
@@ -135,6 +177,12 @@ public class AviationstackFlightIngestionProvider implements FlightIngestionProv
         }
     }
 
+    private static String coalesce(String... values) {
+        for (String v : values) {
+            if (v != null && !v.isBlank()) return v;
+        }
+        return null;
+    }
     private static String safe3(String s) {
         if (s == null) return "";
         String t = s.trim().toUpperCase();

@@ -34,8 +34,14 @@ public class AmadeusAuthService {
     private volatile TokenHolder cachedToken;
 
     public boolean isConfigured() {
-        return clientId != null && !clientId.isBlank()
+        boolean configured = clientId != null && !clientId.isBlank()
                 && clientSecret != null && !clientSecret.isBlank();
+        if (!configured) {
+            log.debug("Amadeus credentials check: clientId={}, clientSecret={}", 
+                    clientId != null && !clientId.isBlank() ? "***" : "MISSING",
+                    clientSecret != null && !clientSecret.isBlank() ? "***" : "MISSING");
+        }
+        return configured;
     }
 
     public String getAccessToken() {
@@ -67,15 +73,25 @@ public class AmadeusAuthService {
         body.add("client_secret", clientSecret);
 
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
-        ResponseEntity<TokenResponse> response = restTemplate.postForEntity(url, request, TokenResponse.class);
-        TokenResponse tokenResponse = response.getBody();
-        if (tokenResponse == null || tokenResponse.accessToken == null) {
-            throw new IllegalStateException("Failed to obtain Amadeus access token");
+        try {
+            ResponseEntity<TokenResponse> response = restTemplate.postForEntity(url, request, TokenResponse.class);
+            TokenResponse tokenResponse = response.getBody();
+            if (tokenResponse == null || tokenResponse.accessToken == null) {
+                log.error("Amadeus token response is null or missing access_token. Status: {}, Body: {}", 
+                        response.getStatusCode(), response.getBody());
+                throw new IllegalStateException("Failed to obtain Amadeus access token: response is null or missing access_token");
+            }
+            long expiresIn = tokenResponse.expiresIn != null ? tokenResponse.expiresIn : 1800;
+            Instant expiresAt = Instant.now().plusSeconds(expiresIn - 30);
+            log.info("Obtained Amadeus token (expires in {}s)", expiresIn);
+            return new TokenHolder(tokenResponse.accessToken, expiresAt);
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            log.error("Amadeus token request failed with HTTP {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new IllegalStateException("Failed to obtain Amadeus access token: HTTP " + e.getStatusCode() + " - " + e.getResponseBodyAsString(), e);
+        } catch (Exception e) {
+            log.error("Amadeus token request failed: {}", e.getMessage(), e);
+            throw new IllegalStateException("Failed to obtain Amadeus access token: " + e.getMessage(), e);
         }
-        long expiresIn = tokenResponse.expiresIn != null ? tokenResponse.expiresIn : 1800;
-        Instant expiresAt = Instant.now().plusSeconds(expiresIn - 30);
-        log.info("Obtained Amadeus token (expires in {}s)", expiresIn);
-        return new TokenHolder(tokenResponse.accessToken, expiresAt);
     }
 
     private record TokenHolder(String accessToken, Instant expiresAt) {
