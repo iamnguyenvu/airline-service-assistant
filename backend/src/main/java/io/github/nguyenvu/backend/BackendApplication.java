@@ -20,10 +20,39 @@ public class BackendApplication {
 
     private static void loadDotEnv() {
         try {
-            Path envPath = Paths.get(".env");
-            if (Files.exists(envPath)) {
+            Path envPath = null;
+            Path currentDir = Paths.get("").toAbsolutePath();
+            
+            // Priority 1: Try parent directory (root project) - where .env usually is
+            Path parentDir = currentDir.getParent();
+            if (parentDir != null) {
+                envPath = parentDir.resolve(".env");
+                if (!Files.exists(envPath)) {
+                    envPath = null;
+                }
+            }
+            
+            // Priority 2: Try current directory (backend/)
+            if (envPath == null) {
+                envPath = currentDir.resolve(".env");
+                if (!Files.exists(envPath)) {
+                    envPath = null;
+                }
+            }
+            
+            // Priority 3: Try relative path
+            if (envPath == null) {
+                envPath = Paths.get("..", ".env").normalize();
+                if (!Files.exists(envPath)) {
+                    envPath = null;
+                }
+            }
+            
+            if (envPath != null && Files.exists(envPath)) {
+                Path envDir = envPath.getParent();
                 Dotenv dotenv = Dotenv.configure()
-                        .directory(".")
+                        .directory(envDir != null ? envDir.toString() : ".")
+                        .filename(".env")
                         .ignoreIfMissing()
                         .load();
                 int loaded = 0;
@@ -39,13 +68,16 @@ public class BackendApplication {
                     }
                 }
                 if (loaded > 0) {
-                    log.info("Loaded {} variables from .env file", loaded);
+                    log.info("Loaded {} variables from .env file at {}", loaded, envPath.toAbsolutePath());
+                } else {
+                    log.debug("No new variables loaded from .env (all already set)");
                 }
             } else {
-                log.debug(".env file not found in current directory, skipping");
+                log.warn(".env file not found. Searched in: currentDir={}, parentDir={}", 
+                        currentDir, parentDir);
             }
         } catch (Exception e) {
-            log.warn("Failed to load .env file: {}", e.getMessage());
+            log.warn("Failed to load .env file: {}", e.getMessage(), e);
         }
     }
 }

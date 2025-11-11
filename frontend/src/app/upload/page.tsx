@@ -1,18 +1,28 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { apiClient } from '@/lib/api/client';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Upload, Loader2, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [airlineCode, setAirlineCode] = useState("");
-  const [docType, setDocType] = useState("");
+  const [airlineCode, setAirlineCode] = useState('');
+  const [docType, setDocType] = useState('policy');
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setFile(e.target.files[0]);
+      setUploadSuccess(false);
     }
   };
 
@@ -20,152 +30,167 @@ export default function UploadPage() {
     e.preventDefault();
     
     if (!file || !airlineCode || !docType) {
-      alert("Please fill in all fields and select a file");
+      toast.error('Please fill in all fields and select a file');
       return;
     }
 
     setIsUploading(true);
-    setUploadResult(null);
+    setUploadSuccess(false);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("airlineCode", airlineCode);
-      formData.append("docType", docType);
-
-      const response = await fetch("http://localhost:8080/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (response.ok) {
-        const result = await response.text();
-        setUploadResult(`Success: ${result}`);
-        setFile(null);
-        setAirlineCode("");
-        setDocType("");
-        // Reset form
-        const form = document.querySelector("form") as HTMLFormElement;
-        form?.reset();
-      } else {
-        setUploadResult(`Error: ${response.statusText}`);
-      }
+      const result = await apiClient.uploadDocument(file, airlineCode, docType);
+      toast.success(result.message || 'Document uploaded successfully');
+      setUploadSuccess(true);
+      
+      // Reset form
+      setFile(null);
+      setAirlineCode('');
+      setDocType('policy');
+      const form = e.target as HTMLFormElement;
+      form.reset();
     } catch (error) {
-      setUploadResult(`Error: ${error}`);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload document');
     } finally {
       setIsUploading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-2xl mx-auto">
-        
-        {/* Header */}
-        <div className="mb-8">
-          <Link href="/" className="text-blue-500 hover:text-blue-700 mb-4 inline-block">
-            ← Back to Home
-          </Link>
-          <h1 className="text-4xl font-bold text-gray-800">Upload Documents</h1>
-          <p className="text-gray-600 mt-2">
-            Upload airline policy documents (PDF or TXT) to the system for AI processing
-          </p>
-        </div>
+    <PageLayout>
+      <div className="p-6 max-w-2xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Upload Policy Documents</h1>
+        <p className="text-muted-foreground mt-2">
+          Upload airline policy documents (PDF, TXT, DOC, DOCX) for AI processing
+        </p>
+      </div>
 
-        {/* Upload Form */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Document Upload</CardTitle>
+          <CardDescription>
+            Documents will be processed and indexed for AI-powered Q&A
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
           <form onSubmit={handleUpload} className="space-y-6">
-            
-            <div>
-              <label htmlFor="airlineCode" className="block text-sm font-medium text-gray-700 mb-2">
-                Airline Code *
-              </label>
-              <input
-                type="text"
+            <div className="space-y-2">
+              <Label htmlFor="airlineCode">Airline Code *</Label>
+              <Input
                 id="airlineCode"
                 value={airlineCode}
-                onChange={(e) => setAirlineCode(e.target.value)}
-                placeholder="e.g., VN, AA, DL"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                onChange={(e) => setAirlineCode(e.target.value.toUpperCase())}
+                placeholder="e.g., VN, VJ, QH"
+                maxLength={3}
                 required
               />
             </div>
 
-            <div>
-              <label htmlFor="docType" className="block text-sm font-medium text-gray-700 mb-2">
-                Document Type *
-              </label>
-              <select
-                id="docType"
-                value={docType}
-                onChange={(e) => setDocType(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              >
-                <option value="">Select document type...</option>
-                <option value="POLICY">Policy Document</option>
-                <option value="PROCEDURE">Procedure Manual</option>
-                <option value="FAQ">FAQ Document</option>
-                <option value="TERMS">Terms & Conditions</option>
-                <option value="GUIDE">User Guide</option>
-                <option value="OTHER">Other</option>
-              </select>
+            <div className="space-y-2">
+              <Label htmlFor="docType">Document Type *</Label>
+              <Select value={docType} onValueChange={setDocType}>
+                <SelectTrigger id="docType">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="policy">Policy Document</SelectItem>
+                  <SelectItem value="procedure">Procedure Manual</SelectItem>
+                  <SelectItem value="faq">FAQ Document</SelectItem>
+                  <SelectItem value="terms">Terms & Conditions</SelectItem>
+                  <SelectItem value="guide">User Guide</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div>
-              <label htmlFor="file" className="block text-sm font-medium text-gray-700 mb-2">
-                Document File *
-              </label>
-              <input
-                type="file"
-                id="file"
-                onChange={handleFileChange}
-                accept=".pdf,.txt,.doc,.docx"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                Supported formats: PDF, TXT, DOC, DOCX
-              </p>
-            </div>
-
-            {file && (
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="text-sm text-gray-700">
-                  <strong>Selected file:</strong> {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                </p>
+            <div className="space-y-2">
+              <Label htmlFor="file">Document File *</Label>
+              <div className="flex items-center justify-center w-full">
+                <label
+                  htmlFor="file"
+                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
+                    <p className="mb-2 text-sm text-muted-foreground">
+                      <span className="font-semibold">Click to upload</span> or drag and drop
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      PDF, TXT, DOC, DOCX (MAX. 10MB)
+                    </p>
+                  </div>
+                  <input
+                    id="file"
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.txt,.doc,.docx"
+                    onChange={handleFileChange}
+                    required
+                  />
+                </label>
               </div>
-            )}
+              {file && (
+                <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                  <FileText className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm flex-1">{file.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </span>
+                </div>
+              )}
+            </div>
 
-            <button
-              type="submit"
-              disabled={isUploading}
-              className="w-full bg-blue-500 text-white py-3 px-6 rounded-lg hover:bg-blue-600 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
-            >
-              {isUploading ? "Uploading..." : "Upload Document"}
-            </button>
+            <Button type="submit" disabled={isUploading} className="w-full">
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Document
+                </>
+              )}
+            </Button>
           </form>
-        </div>
 
-        {/* Upload Result */}
-        {uploadResult && (
-          <div className={`mt-6 p-4 rounded-lg ${uploadResult.startsWith("Success") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-            {uploadResult}
-          </div>
-        )}
+          {uploadSuccess && (
+            <Alert className="mt-4">
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertDescription>
+                Document uploaded and processed successfully! It will be available for AI Q&A shortly.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Info Section */}
-        <div className="mt-8 bg-blue-50 rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-3">How it works</h2>
-          <ul className="space-y-2 text-gray-700">
-            <li>• Documents are processed with Apache Tika for text extraction</li>
-            <li>• Content is split into chunks and converted to vectors</li>
-            <li>• Vectors are stored in PostgreSQL with pgvector for similarity search</li>
-            <li>• AI can then answer questions based on uploaded content</li>
+      <Card>
+        <CardHeader>
+          <CardTitle>How it works</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              <span>Documents are processed with Apache Tika for text extraction</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              <span>Content is split into chunks and converted to vectors</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              <span>Vectors are stored in PostgreSQL with pgvector for similarity search</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-primary">•</span>
+              <span>AI can then answer questions based on uploaded content</span>
+            </li>
           </ul>
-        </div>
-
+        </CardContent>
+      </Card>
       </div>
-    </div>
+    </PageLayout>
   );
 }

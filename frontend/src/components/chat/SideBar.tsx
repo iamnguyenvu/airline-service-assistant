@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useTheme } from 'next-themes';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   MessageSquare,
   History,
@@ -14,6 +15,7 @@ import {
   User,
   Plane,
   Plus,
+  Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -26,11 +28,14 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
   const { theme, setTheme } = useTheme();
-  const [activeItem, setActiveItem] = useState('chat');
+  const pathname = usePathname();
+  const router = useRouter();
 
   const menuItems = [
     { id: 'chat', icon: MessageSquare, label: 'Chat Tư Vấn', href: '/' },
     { id: 'history', icon: History, label: 'Lịch Sử Chat', href: '/history' },
+    { id: 'ingestion', icon: Upload, label: 'Quản Lý Dữ Liệu', href: '/ingestion' },
+    { id: 'upload', icon: FileText, label: 'Upload Tài Liệu', href: '/upload' },
     { id: 'settings', icon: Settings, label: 'Cài Đặt', href: '/settings' },
     { id: 'terms', icon: FileText, label: 'Điều Khoản', href: '/terms' },
   ];
@@ -71,21 +76,24 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
             </Button>
           )}
 
-          {menuItems.map((item) => (
-            <Button
-              key={item.id}
-              variant={activeItem === item.id ? 'secondary' : 'ghost'}
-              className={cn(
-                'w-full',
-                collapsed ? 'justify-center px-0' : 'justify-start gap-3'
-              )}
-              size="sm"
-              onClick={() => setActiveItem(item.id)}
-            >
-              <item.icon className="h-4 w-4 flex-shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </Button>
-          ))}
+          {menuItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Button
+                key={item.id}
+                variant={isActive ? 'secondary' : 'ghost'}
+                className={cn(
+                  'w-full',
+                  collapsed ? 'justify-center px-0' : 'justify-start gap-3'
+                )}
+                size="sm"
+                onClick={() => router.push(item.href)}
+              >
+                <item.icon className="h-4 w-4 flex-shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </Button>
+            );
+          })}
         </div>
       </div>
 

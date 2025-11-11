@@ -49,12 +49,22 @@ public class FlightIngestionService {
     public List<FlightSnapshot> testFetch(String providerName, LocalDate date, String dep, String arr) {
         FlightIngestionProvider selected = resolveProvider(providerName);
         if (selected == null) {
-            return List.of();
+            log.warn("Provider '{}' not found. Available providers: {}", providerName, 
+                    providerMap != null ? providerMap.keySet() : "none");
+            throw new IllegalArgumentException("Provider '" + providerName + "' not found");
         }
-        if (dep != null && arr != null) {
-            return selected.fetchRoute(date, dep, arr);
+        try {
+            if (dep != null && arr != null) {
+                return selected.fetchRoute(date, dep, arr);
+            }
+            return selected.fetchDaily(date);
+        } catch (IllegalStateException e) {
+            log.warn("Provider '{}' configuration error: {}", providerName, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error fetching from provider '{}': {}", providerName, e.getMessage(), e);
+            throw new RuntimeException("Failed to fetch from provider '" + providerName + "': " + e.getMessage(), e);
         }
-        return selected.fetchDaily(date);
     }
 
     // Daily run: T+1 snapshots by default

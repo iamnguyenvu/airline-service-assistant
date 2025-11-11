@@ -1,19 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Mic, StopCircle } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Send, Paperclip, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatMessage } from './ChatMessage';
-import { cn } from '@/lib/utils';
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-}
+import { apiClient } from '@/lib/api/client';
+import { ChatMessage as ChatMessageType } from '@/lib/api/types';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatAreaProps {
   onShowRightPanel: (content: {
@@ -23,19 +18,21 @@ interface ChatAreaProps {
 }
 
 export function ChatArea({ onShowRightPanel }: ChatAreaProps) {
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<ChatMessageType[]>([
     {
       id: '1',
       role: 'assistant',
       content:
-        'Xin chào! Tôi là trợ lý AI của hãng hàng không. Tôi có thể giúp bạn:\n\n• Tìm kiếm và đặt vé máy bay\n• Kiểm tra thông tin chuyến bay\n• Tư vấn về hành lý và quy định\n• Giải đáp thắc mắc về dịch vụ\n\nBạn cần tôi hỗ trợ điều gì?',
+        'Xin chào! Tôi là trợ lý AI của hãng hàng không. Tôi có thể giúp bạn:\n\n• Tìm kiếm chuyến bay\n• Tư vấn về chính sách hành lý\n• Tra cứu thông tin dịch vụ\n• Giải đáp thắc mắc\n\nBạn cần tôi hỗ trợ điều gì?',
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [sessionId] = useState(() => `session-${Date.now()}`);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -43,32 +40,62 @@ export function ChatArea({ onShowRightPanel }: ChatAreaProps) {
     }
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const handleSend = useCallback(async () => {
+    if (!input.trim() || isTyping) return;
 
-    const userMessage: Message = {
+    const userMessage: ChatMessageType = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: input.trim(),
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = input.trim();
     setInput('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      const aiMessage: Message = {
+    try {
+      const response = await apiClient.chatAsk(currentInput, sessionId, 'vi');
+      
+      const aiMessage: ChatMessageType = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.answer,
+        timestamp: new Date(),
+        usedTools: response.usedTools,
+        model: response.model,
+      };
+
+      setMessages((prev) => [...prev, aiMessage]);
+
+      if (response.usedTools) {
+        const lowerContent = response.answer.toLowerCase();
+        if (lowerContent.includes('chuyến bay') || lowerContent.includes('flight')) {
+          onShowRightPanel({ type: 'flights', data: { message: response.answer } });
+        } else if (lowerContent.includes('chính sách') || lowerContent.includes('policy')) {
+          onShowRightPanel({ type: 'policy', data: { message: response.answer } });
+        }
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      const errorMessage: ChatMessageType = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content:
-          'Tôi đã hiểu yêu cầu của bạn. Để tôi tìm kiếm các chuyến bay phù hợp nhất cho bạn...',
+          'Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại sau.',
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, aiMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
+      toast({
+        title: 'Lỗi',
+        description: error instanceof Error ? error.message : 'Không thể kết nối đến server',
+        variant: 'destructive',
+      });
+    } finally {
       setIsTyping(false);
-    }, 1500);
-  };
+    }
+  }, [input, isTyping, sessionId, onShowRightPanel, toast]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {

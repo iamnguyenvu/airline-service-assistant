@@ -31,29 +31,47 @@ public class IngestionController {
             @RequestParam(required = false) String dep,
             @RequestParam(required = false) String arr
     ) {
-        String providerName = provider.trim().toLowerCase();
-        List<FlightSnapshot> snapshots = ingestionService.testFetch(
-                providerName,
-                date,
-                dep != null ? dep.trim().toUpperCase() : null,
-                arr != null ? arr.trim().toUpperCase() : null
-        );
-        List<Map<String, Object>> sample = snapshots.stream().limit(3).map(s -> {
-            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
-            m.put("route", s.getDepIata() + "-" + s.getArrIata());
-            m.put("flightNo", s.getFlightNo());
-            m.put("carrier", s.getCarrier());
-            m.put("depTime", s.getDepTime());
-            m.put("arrTime", s.getArrTime());
-            m.put("durationMin", s.getDurationMin());
-            return m;
-        }).collect(Collectors.toList());
-        return ResponseEntity.ok(Map.of(
-                "date", date.toString(),
-                "provider", providerName,
-                "count", snapshots.size(),
-                "sample", sample
-        ));
+        try {
+            String providerName = provider.trim().toLowerCase();
+            List<FlightSnapshot> snapshots = ingestionService.testFetch(
+                    providerName,
+                    date,
+                    dep != null ? dep.trim().toUpperCase() : null,
+                    arr != null ? arr.trim().toUpperCase() : null
+            );
+            List<Map<String, Object>> sample = snapshots.stream().limit(3).map(s -> {
+                java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("route", s.getDepIata() + "-" + s.getArrIata());
+                m.put("flightNo", s.getFlightNo());
+                m.put("carrier", s.getCarrier());
+                m.put("depTime", s.getDepTime());
+                m.put("arrTime", s.getArrTime());
+                m.put("durationMin", s.getDurationMin());
+                return m;
+            }).collect(Collectors.toList());
+            return ResponseEntity.ok(Map.of(
+                    "date", date.toString(),
+                    "provider", providerName,
+                    "count", snapshots.size(),
+                    "sample", sample
+            ));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "date", date.toString(),
+                    "provider", provider.trim().toLowerCase(),
+                    "count", 0,
+                    "sample", List.of(),
+                    "error", e.getMessage()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "date", date.toString(),
+                    "provider", provider.trim().toLowerCase(),
+                    "count", 0,
+                    "sample", List.of(),
+                    "error", e.getMessage() != null ? e.getMessage() : "Unknown error"
+            ));
+        }
     }
 }
 

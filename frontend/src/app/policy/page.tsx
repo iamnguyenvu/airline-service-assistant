@@ -1,138 +1,147 @@
-"use client";
+'use client';
 
-import Image from "next/image";
-import { useState } from "react";
+import { useState } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Loader2, MessageSquare } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
+import { toast } from 'sonner';
 
-export default function Home() {
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
+export default function PolicyPage() {
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleAskQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!question.trim()) return;
+    if (!question.trim()) {
+      toast.error('Vui lòng nhập câu hỏi');
+      return;
+    }
 
     setIsLoading(true);
-    try {
-      const response = await fetch("http://localhost:8080/api/policy/ask", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ question }),
-      });
+    setAnswer('');
 
-      if (response.ok) {
-        const data = await response.json();
-        setAnswer(data.answer);
-      } else {
-        setAnswer("Error: Unable to get answer. Please try again.");
-      }
+    try {
+      const data = await apiClient.askPolicy(question);
+      setAnswer(data.answer);
     } catch (error) {
-      setAnswer("Error: Unable to connect to server. Please check if the backend is running.");
+      const errorMessage = error instanceof Error ? error.message : 'Không thể kết nối đến server';
+      setAnswer(`Lỗi: ${errorMessage}`);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <Image
-            className="mx-auto mb-4 dark:invert"
-            src="/next.svg"
-            alt="Airline Assistant Logo"
-            width={120}
-            height={30}
-            priority
-          />
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            ✈️ Airline Service Assistant
+    <PageLayout>
+      <div className="p-6 max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <MessageSquare className="h-8 w-8" />
+            Policy Q&A
           </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300">
-            AI-Powered Policy Q&A System
+          <p className="text-muted-foreground mt-2">
+            Hỏi đáp về chính sách hãng hàng không với AI
           </p>
         </div>
 
-        {/* Main Content */}
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-white">
-              Ask about airline policies
-            </h2>
-            
+        <Card>
+          <CardHeader>
+            <CardTitle>Đặt Câu Hỏi</CardTitle>
+            <CardDescription>
+              Nhập câu hỏi về chính sách hành lý, đổi vé, hoàn vé, v.v.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <form onSubmit={handleAskQuestion} className="space-y-4">
-              <div>
-                <label htmlFor="question" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Your Question
-                </label>
-                <textarea
+              <div className="space-y-2">
+                <Label htmlFor="question">Câu hỏi của bạn</Label>
+                <Textarea
                   id="question"
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="e.g., What is the baggage allowance for economy class passengers?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  rows={3}
+                  placeholder="Ví dụ: VNA cho phép mang bao nhiêu kg hành lý xách tay?"
+                  rows={4}
                   disabled={isLoading}
+                  className="resize-none"
                 />
               </div>
-              
-              <button
-                type="submit"
-                disabled={isLoading || !question.trim()}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? "Thinking..." : "Ask Question"}
-              </button>
-            </form>
-          </div>
 
-          {/* Answer Section */}
-          {(answer || isLoading) && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-              <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">
-                Answer
-              </h3>
+              <Button type="submit" disabled={isLoading || !question.trim()} className="w-full">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Gửi Câu Hỏi
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        {(answer || isLoading) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Câu Trả Lời</CardTitle>
+            </CardHeader>
+            <CardContent>
               {isLoading ? (
-                <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                  <span className="text-gray-600 dark:text-gray-400">Processing your question...</span>
+                <div className="flex items-center gap-2 py-4">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-muted-foreground">Đang xử lý câu hỏi của bạn...</span>
                 </div>
               ) : (
-                <div className="prose dark:prose-invert max-w-none">
-                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                    {answer}
-                  </p>
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <p className="whitespace-pre-wrap text-foreground">{answer}</p>
                 </div>
               )}
-            </div>
-          )}
-          
-          {/* Features Section */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h3 className="font-semibold text-gray-800 dark:text-white mb-2">🧠 AI-Powered</h3>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Uses Google Gemini AI for intelligent responses
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">🧠 AI-Powered</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Sử dụng Google Gemini AI để trả lời thông minh
               </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h3 className="font-semibold text-gray-800 dark:text-white mb-2">🔍 Vector Search</h3>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Finds relevant policy information using semantic search
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">🔍 Vector Search</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Tìm thông tin chính sách liên quan bằng semantic search
               </p>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h3 className="font-semibold text-gray-800 dark:text-white mb-2">📚 Comprehensive</h3>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Covers baggage, booking, refund, and change policies
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">📚 Toàn Diện</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Bao gồm hành lý, đặt vé, hoàn vé, đổi vé
               </p>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }
