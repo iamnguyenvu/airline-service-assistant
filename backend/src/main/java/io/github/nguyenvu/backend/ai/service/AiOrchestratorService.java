@@ -162,7 +162,8 @@ public class AiOrchestratorService {
         }
         // Check for airport names or IATA codes
         String[] airports = {"SGN", "HAN", "DAD", "HPH", "VCA", "CXR", "PQC", "VCL", "DLI", "VDO", 
-                            "TÂN SƠN NHẤT", "NỘI BÀI", "ĐÀ NẴNG", "PHÚ QUỐC", "CẦN THƠ", "VINH"};
+                            "TÂN SƠN NHẤT", "NỘI BÀI", "ĐÀ NẴNG", "PHÚ QUỐC", "CẦN THƠ", "VINH",
+                            "SÀI GÒN", "TP.HCM", "TP HCM", "THÀNH PHỐ HỒ CHÍ MINH", "HÀ NỘI"};
         int airportCount = 0;
         for (String airport : airports) {
             if (t.contains(airport)) {
@@ -171,7 +172,8 @@ public class AiOrchestratorService {
         }
         // If contains airport names and flight-related keywords, likely flight search
         if (airportCount > 0 && (t.contains("ĐẾN") || t.contains("TỪ") || t.contains("ĐI") 
-            || t.contains("TO") || t.contains("FROM"))) {
+            || t.contains("TO") || t.contains("FROM") || t.contains("DANH SÁCH") 
+            || t.contains("LIST") || t.contains("CÁC"))) {
             return true;
         }
         // Check for "các chuyến bay", "danh sách chuyến bay", etc.
@@ -189,12 +191,17 @@ public class AiOrchestratorService {
         // Map airport names to IATA codes
         java.util.Map<String, String> airportMap = new java.util.HashMap<>();
         airportMap.put("TÂN SƠN NHẤT", "SGN");
+        airportMap.put("SÀI GÒN", "SGN");
+        airportMap.put("TP.HCM", "SGN");
+        airportMap.put("TP HCM", "SGN");
+        airportMap.put("THÀNH PHỐ HỒ CHÍ MINH", "SGN");
         airportMap.put("NỘI BÀI", "HAN");
+        airportMap.put("HÀ NỘI", "HAN");
+        airportMap.put("HÀ NỘI", "HAN");
         airportMap.put("ĐÀ NẴNG", "DAD");
         airportMap.put("PHÚ QUỐC", "PQC");
         airportMap.put("CẦN THƠ", "VCA");
         airportMap.put("VINH", "VII");
-        airportMap.put("CẦN THƠ", "VCA");
         airportMap.put("CÁT BI", "HPH");
         airportMap.put("CAM RANH", "CXR");
         airportMap.put("VÂN ĐỒN", "VDO");
@@ -216,6 +223,8 @@ public class AiOrchestratorService {
                 // Find airport after "đến"
                 int toIndex = t.indexOf("ĐẾN");
                 String afterTo = t.substring(toIndex + 3).trim();
+                // Remove common words like "sân bay", "airport", etc.
+                afterTo = afterTo.replace("SÂN BAY", "").replace("AIRPORT", "").trim();
                 for (var entry : airportMap.entrySet()) {
                     if (afterTo.contains(entry.getKey()) || afterTo.startsWith(entry.getValue())) {
                         arrIata = entry.getValue();
@@ -224,6 +233,7 @@ public class AiOrchestratorService {
                 }
                 // Find airport before "đến" (departure)
                 String beforeTo = t.substring(0, toIndex);
+                beforeTo = beforeTo.replace("SÂN BAY", "").replace("AIRPORT", "").trim();
                 for (var entry : airportMap.entrySet()) {
                     if (beforeTo.contains(entry.getKey()) || beforeTo.contains(entry.getValue())) {
                         depIata = entry.getValue();
@@ -234,10 +244,32 @@ public class AiOrchestratorService {
                 // Find airport after "từ"
                 int fromIndex = t.indexOf("TỪ");
                 String afterFrom = t.substring(fromIndex + 3).trim();
-                for (var entry : airportMap.entrySet()) {
-                    if (afterFrom.contains(entry.getKey()) || afterFrom.startsWith(entry.getValue())) {
-                        depIata = entry.getValue();
-                        break;
+                // Remove common words like "sân bay", "airport", etc.
+                afterFrom = afterFrom.replace("SÂN BAY", "").replace("AIRPORT", "").trim();
+                // Check if there's "đến" after "từ"
+                if (afterFrom.contains("ĐẾN")) {
+                    int toIndex = afterFrom.indexOf("ĐẾN");
+                    String depStr = afterFrom.substring(0, toIndex).trim();
+                    String arrStr = afterFrom.substring(toIndex + 3).trim();
+                    arrStr = arrStr.replace("SÂN BAY", "").replace("AIRPORT", "").trim();
+                    for (var entry : airportMap.entrySet()) {
+                        if (depStr.contains(entry.getKey()) || depStr.startsWith(entry.getValue())) {
+                            depIata = entry.getValue();
+                            break;
+                        }
+                    }
+                    for (var entry : airportMap.entrySet()) {
+                        if (arrStr.contains(entry.getKey()) || arrStr.startsWith(entry.getValue())) {
+                            arrIata = entry.getValue();
+                            break;
+                        }
+                    }
+                } else {
+                    for (var entry : airportMap.entrySet()) {
+                        if (afterFrom.contains(entry.getKey()) || afterFrom.startsWith(entry.getValue())) {
+                            depIata = entry.getValue();
+                            break;
+                        }
                     }
                 }
             }
@@ -259,13 +291,28 @@ public class AiOrchestratorService {
         if (dateMatcher.find()) {
             c.setSnapshotDate(java.time.LocalDate.parse(dateMatcher.group(1)));
         } else {
-            // Check for "hôm nay", "hôm nay", "ngày mai", etc.
-            if (t.contains("HÔM NAY") || t.contains("TODAY")) {
-                c.setSnapshotDate(java.time.LocalDate.now());
-            } else if (t.contains("NGÀY MAI") || t.contains("TOMORROW")) {
-                c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
+            // Try to parse Vietnamese date format: "ngày 12 tháng 11 năm 2025"
+            var vnDatePattern = java.util.regex.Pattern.compile("NGÀY\\s+(\\d{1,2})\\s+THÁNG\\s+(\\d{1,2})\\s+NĂM\\s+(\\d{4})", java.util.regex.Pattern.CASE_INSENSITIVE);
+            var vnDateMatcher = vnDatePattern.matcher(t);
+            if (vnDateMatcher.find()) {
+                int day = Integer.parseInt(vnDateMatcher.group(1));
+                int month = Integer.parseInt(vnDateMatcher.group(2));
+                int year = Integer.parseInt(vnDateMatcher.group(3));
+                try {
+                    c.setSnapshotDate(java.time.LocalDate.of(year, month, day));
+                } catch (Exception e) {
+                    log.warn("Invalid date: {}-{}-{}", year, month, day);
+                    c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
+                }
             } else {
-                c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
+                // Check for "hôm nay", "ngày mai", etc.
+                if (t.contains("HÔM NAY") || t.contains("TODAY")) {
+                    c.setSnapshotDate(java.time.LocalDate.now());
+                } else if (t.contains("NGÀY MAI") || t.contains("TOMORROW")) {
+                    c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
+                } else {
+                    c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
+                }
             }
         }
         

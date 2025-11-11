@@ -139,7 +139,7 @@ export function ChatArea({ onShowRightPanel }: ChatAreaProps) {
 
       <div className="border-t bg-background p-4">
         <div className="mx-auto max-w-3xl">
-          <div className="relative flex items-end gap-2">
+          <div className="flex items-end gap-2">
             <div className="flex-1 rounded-2xl border bg-card shadow-sm">
               <Textarea
                 ref={textareaRef}
@@ -168,7 +168,7 @@ export function ChatArea({ onShowRightPanel }: ChatAreaProps) {
               onClick={handleSend}
               disabled={!input.trim() || isTyping}
               size="icon"
-              className="h-14 w-14 rounded-2xl"
+              className="h-[56px] w-[56px] shrink-0 rounded-2xl"
             >
               <Send className="h-5 w-5" />
             </Button>
