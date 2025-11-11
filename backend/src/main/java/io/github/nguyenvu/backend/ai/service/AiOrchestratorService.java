@@ -69,22 +69,31 @@ public class AiOrchestratorService {
                     .build();
         }
 
-        // Fallback: LLM-only response (no registered tools to avoid bean cycles)
-        var result = chatClient
-                .prompt()
-                .user(message)
-                .call();
+        // Fallback: Use LLM with automatic tool calling
+        try {
+            var result = chatClient
+                    .prompt()
+                    .user(message)
+                    .call()
+                    .content();
 
-        String answer = result.content();
-        String model = null;
-        boolean usedTools = false;
+            boolean usedTools = result != null && result.contains("[Tool]") || 
+                               message.toLowerCase().contains("tool.");
 
-        return ChatAskResponse.builder()
-                .answer(answer)
-                .usedTools(usedTools)
-                .model(model)
-                .sessionId(req.getSessionId())
-                .build();
+            return ChatAskResponse.builder()
+                    .answer(result != null ? result : "Xin lỗi, tôi không thể xử lý yêu cầu này.")
+                    .usedTools(usedTools)
+                    .model("gemini-2.5-flash")
+                    .sessionId(req.getSessionId())
+                    .build();
+        } catch (Exception e) {
+            log.error("Error in LLM chat: {}", e.getMessage(), e);
+            return ChatAskResponse.builder()
+                    .answer("Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại.")
+                    .usedTools(false)
+                    .sessionId(req.getSessionId())
+                    .build();
+        }
     }
 
     private ChatAskResponse tryHandleRuntimeToolCall(String message, String sessionId) {
