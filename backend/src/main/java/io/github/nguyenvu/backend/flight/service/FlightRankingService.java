@@ -162,7 +162,6 @@ public class FlightRankingService {
     /**
      * CO₂ score: Use avgCo2Kg as baseline.
      * Note: FlightSnapshot doesn't have CO2 field yet - returning neutral score.
-     * TODO: Add CO2 calculation to FlightSnapshot based on duration.
      */
     private double calculateCO2Score(FlightSnapshot flight, RouteStatsDaily stats) {
         double co2EstimateKg = estimateCO2Kg(flight);
@@ -195,7 +194,6 @@ public class FlightRankingService {
 
     /**
      * Time preference score.
-     * TODO: Get preference from user profile.
      * Current: Business hours (6am-6pm) preferred.
      */
     private double calculateTimePrefScore(
@@ -215,7 +213,6 @@ public class FlightRankingService {
 
     /**
      * Carrier preference score.
-     * TODO: Integrate with user preferences.
      */
     private double calculateCarrierScore(
             FlightSnapshot flight, FlightSearchCriteria criteria) {
