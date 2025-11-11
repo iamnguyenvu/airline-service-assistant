@@ -1,5 +1,6 @@
 package io.github.nguyenvu.backend.flight.service;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -76,15 +77,15 @@ public class AmadeusAuthService {
         try {
             ResponseEntity<TokenResponse> response = restTemplate.postForEntity(url, request, TokenResponse.class);
             TokenResponse tokenResponse = response.getBody();
-            if (tokenResponse == null || tokenResponse.accessToken == null) {
+            if (tokenResponse == null || tokenResponse.getAccessToken() == null || tokenResponse.getAccessToken().isBlank()) {
                 log.error("Amadeus token response is null or missing access_token. Status: {}, Body: {}", 
                         response.getStatusCode(), response.getBody());
                 throw new IllegalStateException("Failed to obtain Amadeus access token: response is null or missing access_token");
             }
-            long expiresIn = tokenResponse.expiresIn != null ? tokenResponse.expiresIn : 1800;
+            long expiresIn = tokenResponse.getExpiresIn() != null ? tokenResponse.getExpiresIn() : 1800;
             Instant expiresAt = Instant.now().plusSeconds(expiresIn - 30);
             log.info("Obtained Amadeus token (expires in {}s)", expiresIn);
-            return new TokenHolder(tokenResponse.accessToken, expiresAt);
+            return new TokenHolder(tokenResponse.getAccessToken(), expiresAt);
         } catch (org.springframework.web.client.HttpClientErrorException e) {
             log.error("Amadeus token request failed with HTTP {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
             throw new IllegalStateException("Failed to obtain Amadeus access token: HTTP " + e.getStatusCode() + " - " + e.getResponseBodyAsString(), e);
@@ -101,8 +102,13 @@ public class AmadeusAuthService {
     }
 
     private static class TokenResponse {
+        @JsonProperty("type")
         private String type;
+        
+        @JsonProperty("access_token")
         private String accessToken;
+        
+        @JsonProperty("expires_in")
         private Long expiresIn;
 
         public String getType() {
