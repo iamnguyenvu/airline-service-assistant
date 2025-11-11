@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useTheme } from 'next-themes';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -12,7 +11,6 @@ import {
   ChevronRight,
   Moon,
   Sun,
-  User,
   Plane,
   Plus,
   Upload,
@@ -36,7 +34,6 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
     { id: 'history', icon: History, label: 'Lịch Sử Chat', href: '/history' },
     { id: 'ingestion', icon: Upload, label: 'Quản Lý Dữ Liệu', href: '/ingestion' },
     { id: 'upload', icon: FileText, label: 'Upload Tài Liệu', href: '/upload' },
-    { id: 'settings', icon: Settings, label: 'Cài Đặt', href: '/settings' },
     { id: 'terms', icon: FileText, label: 'Điều Khoản', href: '/terms' },
   ];
 
@@ -52,10 +49,22 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
         {!collapsed && (
           <div className="flex items-center gap-2">
             <Plane className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-lg">Airline AI</span>
+            <span className="font-semibold text-lg">Airline AI Servant</span>
           </div>
         )}
         {collapsed && <Plane className="h-6 w-6 text-primary mx-auto" />}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onToggleCollapse}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto py-4">
@@ -89,7 +98,7 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
                 size="sm"
                 onClick={() => router.push(item.href)}
               >
-                <item.icon className="h-4 w-4 flex-shrink-0" />
+                <item.icon className="h-4 w-4 shrink-0" />
                 {!collapsed && <span>{item.label}</span>}
               </Button>
             );
@@ -98,25 +107,6 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
       </div>
 
       <div className="border-t p-2 space-y-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            'w-full',
-            collapsed ? 'justify-center px-0' : 'justify-start gap-3'
-          )}
-          onClick={onToggleCollapse}
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <>
-              <ChevronLeft className="h-4 w-4" />
-              <span>Thu gọn</span>
-            </>
-          )}
-        </Button>
-
         <Button
           variant="ghost"
           size="sm"
@@ -137,6 +127,19 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
               {!collapsed && <span>Tối</span>}
             </>
           )}
+        </Button>
+
+        <Button
+          variant={pathname === '/settings' ? 'secondary' : 'ghost'}
+          size="sm"
+          className={cn(
+            'w-full',
+            collapsed ? 'justify-center px-0' : 'justify-start gap-3'
+          )}
+          onClick={() => router.push('/settings')}
+        >
+          <Settings className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>Cài Đặt</span>}
         </Button>
 
         <Button

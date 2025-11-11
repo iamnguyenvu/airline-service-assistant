@@ -2,10 +2,12 @@
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageLayout } from '@/components/layout/PageLayout';
 
 export default function TermsPage() {
   return (
-    <div className="flex h-screen flex-col">
+    <PageLayout>
+      <div className="flex h-screen flex-col">
       <div className="border-b bg-card p-4 md:p-6">
         <h1 className="text-2xl font-semibold">Điều Khoản & Quy Định</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -117,5 +119,6 @@ export default function TermsPage() {
         </div>
       </ScrollArea>
     </div>
+    </PageLayout>
   );
 }

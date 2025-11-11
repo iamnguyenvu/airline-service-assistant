@@ -39,116 +39,134 @@ export function RightPanel({ isOpen, content, onClose }: RightPanelProps) {
       </div>
 
       <ScrollArea className="flex-1 p-4">
-        {content?.type === 'flights' && <FlightResults />}
-        {content?.type === 'policy' && <PolicyDetails />}
+        {content?.type === 'flights' && <FlightResults data={content.data} />}
+        {content?.type === 'policy' && <PolicyDetails data={content.data} />}
         {content?.type === 'tips' && <QuickTips />}
       </ScrollArea>
     </aside>
   );
 }
 
-function FlightResults() {
-  const flights = [
-    {
-      id: 1,
-      airline: 'Vietnam Airlines',
-      flightNumber: 'VN123',
-      departure: { city: 'Hà Nội', time: '08:00', airport: 'HAN' },
-      arrival: { city: 'TP.HCM', time: '10:15', airport: 'SGN' },
-      price: '1.500.000 VND',
-      duration: '2h 15m',
-    },
-    {
-      id: 2,
-      airline: 'VietJet Air',
-      flightNumber: 'VJ456',
-      departure: { city: 'Hà Nội', time: '10:30', airport: 'HAN' },
-      arrival: { city: 'TP.HCM', time: '12:45', airport: 'SGN' },
-      price: '1.200.000 VND',
-      duration: '2h 15m',
-    },
-  ];
+interface FlightResultsProps {
+  data?: unknown;
+}
+
+function FlightResults({ data }: FlightResultsProps) {
+  // Parse flight data from API response
+  let flights: Array<{
+    id: string;
+    carrier: string;
+    flightNo: string;
+    depIata: string;
+    arrIata: string;
+    depTime: string | null;
+    arrTime: string | null;
+    durationMin: number | null;
+    priceCents: number | null;
+  }> = [];
+
+  if (data && typeof data === 'object' && 'flights' in data) {
+    const flightData = data as { flights?: unknown[] };
+    if (Array.isArray(flightData.flights)) {
+      flights = flightData.flights.map((f: any, index: number) => ({
+        id: f.id?.toString() || index.toString(),
+        carrier: f.carrier || '',
+        flightNo: f.flightNo || '',
+        depIata: f.depIata || '',
+        arrIata: f.arrIata || '',
+        depTime: f.depTime || null,
+        arrTime: f.arrTime || null,
+        durationMin: f.durationMin || null,
+        priceCents: f.priceCents || null,
+      }));
+    }
+  }
+
+  if (flights.length === 0) {
+    return (
+      <div className="text-center text-muted-foreground py-8">
+        <p>Chưa có kết quả chuyến bay.</p>
+        <p className="text-sm mt-2">Hãy hỏi về chuyến bay để xem kết quả.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      {flights.map((flight) => (
-        <Card key={flight.id} className="overflow-hidden">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">
-              {flight.airline} - {flight.flightNumber}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 pb-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-lg font-semibold">{flight.departure.time}</p>
-                <p className="text-sm text-muted-foreground">
-                  {flight.departure.city}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {flight.departure.airport}
-                </p>
+      {flights.map((flight) => {
+        const depTime = flight.depTime ? new Date(flight.depTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+        const arrTime = flight.arrTime ? new Date(flight.arrTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+        const duration = flight.durationMin ? `${Math.floor(flight.durationMin / 60)}h ${flight.durationMin % 60}m` : 'N/A';
+        const price = flight.priceCents ? `${(flight.priceCents / 100).toLocaleString('vi-VN')} ₫` : 'N/A';
+        
+        return (
+          <Card key={flight.id} className="overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">
+                {flight.carrier} - {flight.flightNo}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 pb-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-lg font-semibold">{depTime}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {flight.depIata}
+                  </p>
+                </div>
+                <div className="flex flex-col items-center">
+                  <Plane className="h-4 w-4 text-muted-foreground mb-1" />
+                  <p className="text-xs text-muted-foreground">{duration}</p>
+                </div>
+                <div className="space-y-1 text-right">
+                  <p className="text-lg font-semibold">{arrTime}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {flight.arrIata}
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-col items-center">
-                <Plane className="h-4 w-4 text-muted-foreground mb-1" />
-                <p className="text-xs text-muted-foreground">{flight.duration}</p>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1 text-sm">
+                  <DollarSign className="h-4 w-4" />
+                  <span className="font-semibold text-primary">{price}</span>
+                </div>
+                <Button size="sm">Chọn chuyến bay</Button>
               </div>
-              <div className="space-y-1 text-right">
-                <p className="text-lg font-semibold">{flight.arrival.time}</p>
-                <p className="text-sm text-muted-foreground">{flight.arrival.city}</p>
-                <p className="text-xs text-muted-foreground">
-                  {flight.arrival.airport}
-                </p>
-              </div>
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1 text-sm">
-                <DollarSign className="h-4 w-4" />
-                <span className="font-semibold text-primary">{flight.price}</span>
-              </div>
-              <Button size="sm">Chọn chuyến bay</Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
 
-function PolicyDetails() {
+interface PolicyDetailsProps {
+  data?: unknown;
+}
+
+function PolicyDetails({ data }: PolicyDetailsProps) {
+  if (!data || (typeof data === 'object' && !('message' in data))) {
+    return (
+      <div className="text-center text-muted-foreground py-8">
+        <p>Chưa có thông tin chính sách.</p>
+        <p className="text-sm mt-2">Hãy hỏi về chính sách để xem thông tin.</p>
+      </div>
+    );
+  }
+
+  const message = typeof data === 'object' && 'message' in data 
+    ? String(data.message) 
+    : '';
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Hành Lý Xách Tay</CardTitle>
+          <CardTitle className="text-sm">Thông Tin Chính Sách</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>• Kích thước tối đa: 56cm x 36cm x 23cm</p>
-          <p>• Trọng lượng tối đa: 7kg</p>
-          <p>• Số lượng: 1 túi xách tay + 1 túi cá nhân</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Hành Lý Ký Gửi</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>• Hạng Phổ Thông: 23kg</p>
-          <p>• Hạng Thương Gia: 32kg</p>
-          <p>• Hạng Nhất: 40kg</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Check-in</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>• Online: 24h - 1h trước giờ bay</p>
-          <p>• Quầy: 3h - 40 phút trước giờ bay</p>
-          <p>• Đóng cửa lên máy bay: 15 phút trước giờ bay</p>
+        <CardContent className="text-sm text-muted-foreground space-y-2 whitespace-pre-wrap">
+          {message || 'Không có thông tin chi tiết.'}
         </CardContent>
       </Card>
     </div>

@@ -71,7 +71,10 @@ export function ChatArea({ onShowRightPanel }: ChatAreaProps) {
 
       if (response.usedTools) {
         const lowerContent = response.answer.toLowerCase();
-        if (lowerContent.includes('chuyến bay') || lowerContent.includes('flight')) {
+        if (response.flightResults) {
+          // Show flight results from API
+          onShowRightPanel({ type: 'flights', data: response.flightResults });
+        } else if (lowerContent.includes('chuyến bay') || lowerContent.includes('flight')) {
           onShowRightPanel({ type: 'flights', data: { message: response.answer } });
         } else if (lowerContent.includes('chính sách') || lowerContent.includes('policy')) {
           onShowRightPanel({ type: 'policy', data: { message: response.answer } });

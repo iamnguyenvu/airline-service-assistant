@@ -7,6 +7,26 @@ export interface ChatMessage {
   model?: string;
 }
 
+export interface FlightSearchResult {
+  flights: Array<{
+    id?: number;
+    carrier: string;
+    flightNo: string;
+    depIata: string;
+    arrIata: string;
+    depTime: string | null;
+    arrTime: string | null;
+    durationMin: number | null;
+    priceCents: number | null;
+  }>;
+  totalElements: number;
+  totalPages: number;
+  currentPage: number;
+  pageSize: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
 export interface Document {
   id: number;
   airlineCode: string;

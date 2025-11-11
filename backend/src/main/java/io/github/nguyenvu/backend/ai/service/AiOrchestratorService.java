@@ -66,6 +66,7 @@ public class AiOrchestratorService {
                     .answer(answer)
                     .usedTools(true)
                     .sessionId(req.getSessionId())
+                    .flightResults(result)
                     .build();
         }
 
@@ -150,23 +151,124 @@ public class AiOrchestratorService {
 
     private boolean looksLikeFlightSearch(String text) {
         String t = text.toUpperCase();
-        return t.matches(".*\\b[A-Z]{3}-[A-Z]{3}\\b.*") || t.contains("TÌM VÉ") || t.contains("TÌM CHUYẾN");
+        // Check for explicit flight search keywords
+        if (t.contains("TÌM VÉ") || t.contains("TÌM CHUYẾN") || t.contains("CHUYẾN BAY") 
+            || t.contains("FLIGHT") || t.contains("TÌM CHUYẾN BAY")) {
+            return true;
+        }
+        // Check for route pattern (e.g., "SGN-HAN", "HAN-SGN")
+        if (t.matches(".*\\b[A-Z]{3}-[A-Z]{3}\\b.*")) {
+            return true;
+        }
+        // Check for airport names or IATA codes
+        String[] airports = {"SGN", "HAN", "DAD", "HPH", "VCA", "CXR", "PQC", "VCL", "DLI", "VDO", 
+                            "TÂN SƠN NHẤT", "NỘI BÀI", "ĐÀ NẴNG", "PHÚ QUỐC", "CẦN THƠ", "VINH"};
+        int airportCount = 0;
+        for (String airport : airports) {
+            if (t.contains(airport)) {
+                airportCount++;
+            }
+        }
+        // If contains airport names and flight-related keywords, likely flight search
+        if (airportCount > 0 && (t.contains("ĐẾN") || t.contains("TỪ") || t.contains("ĐI") 
+            || t.contains("TO") || t.contains("FROM"))) {
+            return true;
+        }
+        // Check for "các chuyến bay", "danh sách chuyến bay", etc.
+        if (t.contains("CÁC CHUYẾN BAY") || t.contains("DANH SÁCH CHUYẾN BAY") 
+            || t.contains("LIST FLIGHT") || t.contains("FLIGHT LIST")) {
+            return true;
+        }
+        return false;
     }
 
     private io.github.nguyenvu.backend.flight.dto.FlightSearchCriteria parseBasicCriteria(String text) {
         var c = new io.github.nguyenvu.backend.flight.dto.FlightSearchCriteria();
         String t = text.toUpperCase();
+        
+        // Map airport names to IATA codes
+        java.util.Map<String, String> airportMap = new java.util.HashMap<>();
+        airportMap.put("TÂN SƠN NHẤT", "SGN");
+        airportMap.put("NỘI BÀI", "HAN");
+        airportMap.put("ĐÀ NẴNG", "DAD");
+        airportMap.put("PHÚ QUỐC", "PQC");
+        airportMap.put("CẦN THƠ", "VCA");
+        airportMap.put("VINH", "VII");
+        airportMap.put("CẦN THƠ", "VCA");
+        airportMap.put("CÁT BI", "HPH");
+        airportMap.put("CAM RANH", "CXR");
+        airportMap.put("VÂN ĐỒN", "VDO");
+        airportMap.put("ĐÀ LẠT", "DLI");
+        airportMap.put("CHU LAI", "VCL");
+        
+        // Try to find route pattern first (e.g., "SGN-HAN")
         var routeMatcher = java.util.regex.Pattern.compile("\\b([A-Z]{3})-([A-Z]{3})\\b").matcher(t);
         if (routeMatcher.find()) {
             c.setDepIata(routeMatcher.group(1));
             c.setArrIata(routeMatcher.group(2));
+        } else {
+            // Try to parse from natural language
+            String depIata = null;
+            String arrIata = null;
+            
+            // Check for "đến" (to) or "từ" (from)
+            if (t.contains("ĐẾN")) {
+                // Find airport after "đến"
+                int toIndex = t.indexOf("ĐẾN");
+                String afterTo = t.substring(toIndex + 3).trim();
+                for (var entry : airportMap.entrySet()) {
+                    if (afterTo.contains(entry.getKey()) || afterTo.startsWith(entry.getValue())) {
+                        arrIata = entry.getValue();
+                        break;
+                    }
+                }
+                // Find airport before "đến" (departure)
+                String beforeTo = t.substring(0, toIndex);
+                for (var entry : airportMap.entrySet()) {
+                    if (beforeTo.contains(entry.getKey()) || beforeTo.contains(entry.getValue())) {
+                        depIata = entry.getValue();
+                        break;
+                    }
+                }
+            } else if (t.contains("TỪ")) {
+                // Find airport after "từ"
+                int fromIndex = t.indexOf("TỪ");
+                String afterFrom = t.substring(fromIndex + 3).trim();
+                for (var entry : airportMap.entrySet()) {
+                    if (afterFrom.contains(entry.getKey()) || afterFrom.startsWith(entry.getValue())) {
+                        depIata = entry.getValue();
+                        break;
+                    }
+                }
+            }
+            
+            // If only arrival is specified (e.g., "các chuyến bay đến Tân Sơn Nhất")
+            if (arrIata != null && depIata == null) {
+                c.setArrIata(arrIata);
+                // Don't set departure - search all flights to this airport
+            } else if (depIata != null && arrIata != null) {
+                c.setDepIata(depIata);
+                c.setArrIata(arrIata);
+            } else if (depIata != null) {
+                c.setDepIata(depIata);
+            }
         }
+        
+        // Parse date
         var dateMatcher = java.util.regex.Pattern.compile("(20\\d{2}-\\d{2}-\\d{2})").matcher(text);
         if (dateMatcher.find()) {
             c.setSnapshotDate(java.time.LocalDate.parse(dateMatcher.group(1)));
         } else {
-            c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
+            // Check for "hôm nay", "hôm nay", "ngày mai", etc.
+            if (t.contains("HÔM NAY") || t.contains("TODAY")) {
+                c.setSnapshotDate(java.time.LocalDate.now());
+            } else if (t.contains("NGÀY MAI") || t.contains("TOMORROW")) {
+                c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
+            } else {
+                c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
+            }
         }
+        
         return c;
     }
 

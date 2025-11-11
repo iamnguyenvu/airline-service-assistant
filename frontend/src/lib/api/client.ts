@@ -49,6 +49,25 @@ class ApiClient {
       usedTools: boolean;
       model?: string;
       sessionId?: string;
+      flightResults?: {
+        flights: Array<{
+          id?: number;
+          carrier: string;
+          flightNo: string;
+          depIata: string;
+          arrIata: string;
+          depTime: string | null;
+          arrTime: string | null;
+          durationMin: number | null;
+          priceCents: number | null;
+        }>;
+        totalElements: number;
+        totalPages: number;
+        currentPage: number;
+        pageSize: number;
+        hasNext: boolean;
+        hasPrevious: boolean;
+      };
     }>('/api/chat/ask', {
       method: 'POST',
       body: JSON.stringify({ message, sessionId, locale }),

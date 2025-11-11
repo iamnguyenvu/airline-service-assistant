@@ -1,5 +1,6 @@
 package io.github.nguyenvu.backend.ai.dto;
 
+import io.github.nguyenvu.backend.flight.dto.FlightSearchResult;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,4 +15,5 @@ public class ChatAskResponse {
     private boolean usedTools;
     private String model;
     private String sessionId;
+    private FlightSearchResult flightResults;
 }

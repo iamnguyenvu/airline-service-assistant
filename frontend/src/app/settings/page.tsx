@@ -10,13 +10,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { PageLayout } from '@/components/layout/PageLayout';
 
 export default function SettingsPage() {
   const [notifications, setNotifications] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(false);
 
   return (
-    <div className="flex h-screen flex-col">
+    <PageLayout>
+      <div className="flex h-screen flex-col">
       <div className="border-b bg-card p-4 md:p-6">
         <h1 className="text-2xl font-semibold">Cài Đặt</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -182,5 +184,6 @@ export default function SettingsPage() {
         </div>
       </ScrollArea>
     </div>
+    </PageLayout>
   );
 }
