@@ -83,7 +83,7 @@ public class AmadeusFlightIngestionProvider implements FlightIngestionProvider {
         List<FlightSnapshot> snapshots = new ArrayList<>();
         for (Object item : dataList) {
             if (!(item instanceof Map<?, ?> flightMap)) continue;
-            Object segmentsObj = flightMap.get("availabilitySegments");
+            Object segmentsObj = flightMap.get("segments");
             if (!(segmentsObj instanceof List<?> segments)) continue;
             for (Object segObj : segments) {
                 if (!(segObj instanceof Map<?, ?> segment)) continue;
@@ -120,45 +120,52 @@ public class AmadeusFlightIngestionProvider implements FlightIngestionProvider {
 
     private FlightSnapshot mapSegment(Map<?, ?> segment, LocalDate date, String depIata, String arrIata) {
         try {
-            String carrier = text(segment, "flightDesignator", "carrierCode");
-            String flightNumber = text(segment, "flightDesignator", "flightNumber");
-            if (flightNumber == null) {
-                flightNumber = text(segment, "number");
+            String carrier = string(segment.get("carrierCode"));
+            String flightNumber = string(segment.get("number"));
+            if (carrier == null || flightNumber == null) {
+                log.debug("Missing carrierCode or number in segment");
+                return null;
             }
             Map<?, ?> departure = objectMap(segment.get("departure"));
             Map<?, ?> arrival = objectMap(segment.get("arrival"));
             LocalDateTime depTime = parseDateTime(departure);
             LocalDateTime arrTime = parseDateTime(arrival);
             if (depTime == null || arrTime == null) {
+                log.debug("Missing departure or arrival time in segment");
                 return null;
             }
             int durationMin = (int) java.time.Duration.between(depTime, arrTime).toMinutes();
             if (durationMin <= 0) {
+                log.debug("Invalid duration in segment");
                 return null;
             }
             Map<?, ?> firstClass = firstAvailabilityClass(segment);
-            String cabin = firstClass != null ? string(firstClass.get("cabin")) : null;
             String bookingClass = firstClass != null ? string(firstClass.get("class")) : null;
-            Integer nbSeats = firstClass != null ? intValue(firstClass.get("nbSeats")) : null;
+            Integer nbSeats = firstClass != null ? intValue(firstClass.get("numberOfBookableSeats")) : null;
+
+            String actualDepIata = string(departure.get("iataCode"));
+            String actualArrIata = string(arrival.get("iataCode"));
+            if (actualDepIata == null) actualDepIata = depIata;
+            if (actualArrIata == null) actualArrIata = arrIata;
 
             return FlightSnapshot.builder()
                     .snapshotDate(date)
-                    .depIata(depIata)
-                    .arrIata(arrIata)
+                    .depIata(actualDepIata)
+                    .arrIata(actualArrIata)
                     .depTime(depTime)
                     .arrTime(arrTime)
-                    .carrier(carrier != null ? carrier : "")
-                    .flightNo(carrier != null && flightNumber != null ? carrier + flightNumber : flightNumber != null ? flightNumber : "")
+                    .carrier(carrier)
+                    .flightNo(carrier + flightNumber)
                     .durationMin(durationMin)
                     .stops((short) 0)
-                    .fareFamily(cabin != null ? cabin : bookingClass)
-                    .baggageKg(nbSeats != null ? BigDecimal.ZERO : null)
+                    .fareFamily(bookingClass)
+                    .baggageKg(null)
                     .priceCents(0L)
                     .currency("USD")
                     .source("amadeus")
                     .build();
         } catch (Exception e) {
-            log.debug("Failed to map Amadeus segment: {}", e.getMessage());
+            log.warn("Failed to map Amadeus segment: {}", e.getMessage(), e);
             return null;
         }
     }
