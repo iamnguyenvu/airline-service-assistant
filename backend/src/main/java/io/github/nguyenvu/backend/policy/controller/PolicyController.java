@@ -4,6 +4,7 @@ import io.github.nguyenvu.backend.policy.dto.AskRequest;
 import io.github.nguyenvu.backend.policy.dto.AskWithFilterRequest;
 import io.github.nguyenvu.backend.policy.dto.IngestRequest;
 import io.github.nguyenvu.backend.policy.service.PolicyIngestionService;
+import io.github.nguyenvu.backend.policy.service.PolicyCrawlerService;
 import io.github.nguyenvu.backend.policy.service.PolicyQAService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -23,6 +24,7 @@ import io.github.nguyenvu.backend.policy.entity.ServiceDocs;
 @RequestMapping("/api/policy")
 public class PolicyController {
     private final PolicyIngestionService policyIngestionService;
+    private final PolicyCrawlerService policyCrawlerService;
     private final PolicyQAService policyQAService;
 
     @Operation(summary = "Ingest raw policy text into vector store")
@@ -75,6 +77,14 @@ public class PolicyController {
     public ResponseEntity<Map<String, String>> deleteDocument(@PathVariable Long id) {
         policyIngestionService.deleteDocument(id);
         return ResponseEntity.ok(Map.of("message", "Document deleted successfully"));
+    }
+
+    @Operation(summary = "Crawl VNA policy pages and ingest")
+    @ApiResponse(responseCode = "200", description = "Crawl started")
+    @PostMapping("/crawl/vna")
+    public ResponseEntity<Map<String, Object>> crawlVna(@RequestParam(defaultValue = "policy") String docType) {
+        int count = policyCrawlerService.crawlVna(docType);
+        return ResponseEntity.ok(Map.of("ingested", count));
     }
 
 }

@@ -27,6 +27,7 @@ public class FlightIngestionService {
     private final List<FlightIngestionProvider> providers;
     private final FlightSnapshotRepository snapshotRepository;
 
+    // Daily run: T+1 snapshots by default
     @Scheduled(cron = "${app.ingestion.cron:0 15 2 * * *}")
     public void runDailySnapshotIngestion() {
         if (!ingestionEnabled) {
@@ -43,6 +44,7 @@ public class FlightIngestionService {
                 log.warn("No ingestion provider found for name='{}'", provider);
                 return;
             }
+            // Fetch → normalize → persist snapshots
             List<FlightSnapshot> snapshots = selected.fetchDaily(date);
             if (snapshots == null || snapshots.isEmpty()) {
                 log.info("No snapshots fetched for date {}", date);
