@@ -11,12 +11,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
+import io.github.nguyenvu.backend.policy.entity.ServiceDocs;
 
 @RestController
 @RequiredArgsConstructor
@@ -47,6 +47,34 @@ public class PolicyController {
                 askWithFilterRequest.getTopK()
         );
         return ResponseEntity.ok(Map.of("answer", answer));
+    }
+    
+    @Operation(summary = "Upload and ingest policy document (PDF/TXT)")
+    @ApiResponse(responseCode = "200", description = "Document uploaded and processed successfully")
+    @PostMapping("/upload")
+    public ResponseEntity<Map<String, String>> uploadDocument(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("airlineCode") String airlineCode,
+            @RequestParam(value = "docType", defaultValue = "policy") String docType) {
+        
+        String result = policyIngestionService.ingestDocument(file, airlineCode, docType);
+        return ResponseEntity.ok(Map.of("message", result));
+    }
+    
+    @Operation(summary = "List all uploaded documents")
+    @ApiResponse(responseCode = "200", description = "Documents retrieved successfully")
+    @GetMapping("/documents")
+    public ResponseEntity<List<ServiceDocs>> listDocuments() {
+        List<ServiceDocs> documents = policyIngestionService.listDocuments();
+        return ResponseEntity.ok(documents);
+    }
+    
+    @Operation(summary = "Delete a document by ID")
+    @ApiResponse(responseCode = "200", description = "Document deleted successfully")
+    @DeleteMapping("/documents/{id}")
+    public ResponseEntity<Map<String, String>> deleteDocument(@PathVariable Long id) {
+        policyIngestionService.deleteDocument(id);
+        return ResponseEntity.ok(Map.of("message", "Document deleted successfully"));
     }
 
 }
