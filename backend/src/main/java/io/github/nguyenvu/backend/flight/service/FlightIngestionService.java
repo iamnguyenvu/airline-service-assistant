@@ -27,6 +27,36 @@ public class FlightIngestionService {
     private final List<FlightIngestionProvider> providers;
     private final FlightSnapshotRepository snapshotRepository;
 
+    private Map<String, FlightIngestionProvider> providerMap;
+
+    @jakarta.annotation.PostConstruct
+    void init() {
+        providerMap = providers.stream()
+                .collect(Collectors.toMap(p -> p.name().toLowerCase(), p -> p));
+    }
+
+    private FlightIngestionProvider resolveProvider(String name) {
+        if (providerMap == null) {
+            init();
+        }
+        FlightIngestionProvider selected = providerMap.get(name.toLowerCase());
+        if (selected == null) {
+            log.warn("No ingestion provider found for name='{}'", name);
+        }
+        return selected;
+    }
+
+    public List<FlightSnapshot> testFetch(String providerName, LocalDate date, String dep, String arr) {
+        FlightIngestionProvider selected = resolveProvider(providerName);
+        if (selected == null) {
+            return List.of();
+        }
+        if (dep != null && arr != null) {
+            return selected.fetchRoute(date, dep, arr);
+        }
+        return selected.fetchDaily(date);
+    }
+
     // Daily run: T+1 snapshots by default
     @Scheduled(cron = "${app.ingestion.cron:0 15 2 * * *}")
     public void runDailySnapshotIngestion() {
@@ -37,11 +67,8 @@ public class FlightIngestionService {
         log.info("Starting flight ingestion job with provider={}", provider);
         try {
             LocalDate date = LocalDate.now().plusDays(1);
-            Map<String, FlightIngestionProvider> byName = providers.stream()
-                    .collect(Collectors.toMap(FlightIngestionProvider::name, p -> p));
-            FlightIngestionProvider selected = byName.get(provider);
+            FlightIngestionProvider selected = resolveProvider(provider);
             if (selected == null) {
-                log.warn("No ingestion provider found for name='{}'", provider);
                 return;
             }
             // Fetch → normalize → persist snapshots

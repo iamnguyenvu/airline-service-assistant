@@ -18,39 +18,40 @@
 
 ## 🎯 Overview
 
-**Airline Service Assistant** is a zero-cost, AI-powered platform that acts as a virtual airline customer service agent. It provides intelligent flight search, booking management, policy inquiries, and disruption handling — all with explainable reasoning and zero hallucinations.
+**Airline Service Assistant** is a zero-cost, AI-powered airline customer service assistant that provides intelligent flight search and policy guidance. It acts as a virtual customer service agent focused purely on **advisory and consultation** — **without handling actual bookings or transactions**.
 
 ### 🌟 Key Highlights
 
-- 🤖 **Tool-First AI**: Uses function calling to ensure accurate, citation-backed responses
-- 💰 **Zero-Cost Deployment**: Runs entirely on free tiers (Supabase, Ollama, Railway/Vercel)
-- 🔍 **Smart Ranking**: Multi-factor scoring (price, duration, CO₂, preferences) with explanations
-- 📊 **Policy RAG**: Vector search over airline policies with source citations
-- 🔄 **IRROPS Handling**: Automatic rebooking suggestions for delays/cancellations
-- 🌍 **Bilingual**: Supports Vietnamese and English
+- 🤖 **Tool-First AI**: Uses Spring AI function calling to ensure accurate, citation-backed responses
+- 💰 **Zero-Cost Deployment**: Runs entirely on free tiers (PostgreSQL, Redis, Gemini API)
+- 🔍 **Smart Flight Advisory**: Multi-factor flight analysis (price, duration, CO₂, schedules) with explanations
+- 📊 **Policy RAG**: Vector search over airline policies with pgvector and source citations
+- 🌍 **Bilingual Support**: Vietnamese and English with zero hallucination
+- 💬 **Chat-First Interface**: Single conversational interface for all interactions
+- 📈 **Real-time Data**: Auto-crawled flight snapshots and policy ingestion
 
 ---
 
 ## ✨ Features
 
-### For Passengers
-- 🔎 **Smart Flight Search**: Find flights with intelligent filtering (budget, time, baggage, carrier)
-- 📖 **Policy Q&A**: Ask about change fees, refunds, baggage allowance, etc.
-- 🎫 **Mock Booking**: Generate PNR and downloadable PDF e-tickets
-- ⏰ **Hold Timer**: Reserve flights with automatic expiration
-- 🌿 **CO₂ Tracking**: See environmental impact vs. route median
+### Core Capabilities
+- 🔎 **Flight Search & Advisory**: Find and analyze flights with intelligent recommendations
+- 📖 **Policy Q&A**: Ask about airline policies, fees, baggage rules, etc. with citations
+- 💰 **Price Comparison**: Compare fares across airlines with detailed breakdowns
+- 🌿 **CO₂ Impact**: Environmental impact analysis vs. route averages
+- 📊 **Route Analytics**: Price trends and statistics for informed decisions
 
-### For Agents
-- 📋 **Quick Policy Lookup**: Instant access to fare rules and conditions
-- 💵 **Fee Estimation**: Calculate change/refund fees with rule citations
-- 🔄 **Rapid Rebooking**: AI-suggested alternatives during disruptions
-- 📊 **Price Trends**: Historical price data (P50/P90) for route analysis
+### For Customer Service Agents
+- 📋 **Quick Policy Lookup**: Instant access to fare rules and conditions with sources
+- 💵 **Fee Information**: Policy-based fee explanations with rule citations
+- 🔄 **Disruption Guidance**: Alternative flight suggestions during delays/cancellations
+- 📊 **Price Intelligence**: Historical pricing data for customer consultation
 
-### For Developers
-- 🏗️ **Modular Architecture**: Clean separation (AI/Flight/Ingestion services)
+### Technical Features
+- 🏗️ **Modular Architecture**: Clean separation (AI/Flight/Policy services)
 - 🧪 **Testcontainers**: Full integration tests with PostgreSQL + Redis
 - 📚 **OpenAPI Docs**: Auto-generated Swagger UI
-- 🔒 **OAuth2 Ready**: Supabase JWT authentication
+- 🔄 **Auto Data Ingestion**: Scheduled flight data crawling and policy processing
 - 📦 **Docker Compose**: One-command local environment
 
 ---
@@ -168,10 +169,15 @@ Frontend will start at `http://localhost:3000`
 # Health check
 curl http://localhost:8080/actuator/health
 
-# Test AI chat (mock)
+# Test AI chat assistant
 curl -X POST http://localhost:8080/api/chat/ask \
   -H "Content-Type: application/json" \
-  -d '{"message":"Find flights from SGN to HAN on 2025-12-01"}'
+  -d '{"message":"Tìm vé SGN-HAN ngày 15/12, budget dưới 2 triệu"}'
+
+# Test policy Q&A
+curl -X POST http://localhost:8080/api/policy/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question":"VNA cho phép mang bao nhiêu kg hành lý xách tay?"}'
 ```
 
 ---
@@ -324,25 +330,25 @@ We welcome contributions! Please see [DEVELOPMENT.md](docs/DEVELOPMENT.md) for:
 - [x] Frontend scaffolding with Next.js
 
 ### 🔨 Phase 2: Core Features (In Progress)
-- [ ] Flight search implementation
-- [ ] AI chat with tool calling
-- [ ] Policy RAG with pgvector
-- [ ] Mock booking with PDF generation
-- [ ] User preferences
+- [ ] Flight search & advisory implementation  
+- [ ] AI chat with Spring AI tool calling
+- [ ] Policy RAG with pgvector and citations
+- [ ] Auto flight data ingestion scheduler
+- [ ] Policy upload and ingestion system
 
 ### 🚀 Phase 3: Advanced Features (Planned)
 - [ ] Live flight status integration
-- [ ] IRROPS detection & rebooking
-- [ ] Multi-airline support (VietJet, Bamboo, etc.)
-- [ ] Mobile app (React Native)
-- [ ] Admin dashboard
+- [ ] IRROPS advisory and alternative suggestions
+- [ ] Multi-airline support (VietJet, Bamboo Airways, etc.)
+- [ ] Vietnamese language optimization
+- [ ] Mobile responsive chat interface
 
 ### 🌟 Phase 4: Production Ready (Future)
 - [ ] Load testing & optimization
-- [ ] Multi-language support expansion
-- [ ] Payment integration
-- [ ] Real-time notifications
-- [ ] Analytics dashboard
+- [ ] Advanced policy parsing (complex fare rules)
+- [ ] Real-time flight delay notifications
+- [ ] Analytics dashboard for usage patterns
+- [ ] API rate limiting and authentication
 
 ---
 

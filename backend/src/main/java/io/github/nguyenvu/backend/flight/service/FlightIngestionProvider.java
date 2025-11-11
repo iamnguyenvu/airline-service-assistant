@@ -8,6 +8,12 @@ import java.util.List;
 public interface FlightIngestionProvider {
     String name();
     List<FlightSnapshot> fetchDaily(LocalDate date);
+
+    default List<FlightSnapshot> fetchRoute(LocalDate date, String depIata, String arrIata) {
+        return fetchDaily(date).stream()
+                .filter(f -> depIata.equalsIgnoreCase(f.getDepIata()) && arrIata.equalsIgnoreCase(f.getArrIata()))
+                .toList();
+    }
 }
 
 
