@@ -8,6 +8,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import io.github.nguyenvu.backend.ai.tool.EstimateCO2Tool;
 import io.github.nguyenvu.backend.ai.tool.LiveStatusTool;
 import io.github.nguyenvu.backend.ai.tool.RagPolicyTool;
@@ -24,9 +25,13 @@ public class AiOrchestratorService {
     private final RagPolicyTool ragPolicyTool;
     private final EstimateCO2Tool estimateCO2Tool;
     private final LiveStatusTool liveStatusTool;
+    private final ConversationService conversationService;
     private final ObjectMapper objectMapper;
 
     public ChatAskResponse ask(ChatAskRequest req) {
+        // Get or create conversation
+        String sessionId = req.getSessionId() != null ? req.getSessionId() : "session-" + System.currentTimeMillis();
+        
         // Prefer calling domain tools/services directly when intent is clear.
         // If not clear, fall back to LLM for guidance.
         String message = req.getMessage() != null ? req.getMessage().trim() : "";
@@ -34,8 +39,22 @@ public class AiOrchestratorService {
             return ChatAskResponse.builder()
                     .answer("Bạn hãy nhập câu hỏi hoặc yêu cầu cụ thể nhé.")
                     .usedTools(false)
-                    .sessionId(req.getSessionId())
+                    .sessionId(sessionId)
                     .build();
+        }
+        var conversation = conversationService.getOrCreateConversation(sessionId);
+        
+        // Save user message
+        conversationService.saveUserMessage(conversation, message);
+        
+        // Get conversation history (last 10 messages for context)
+        List<io.github.nguyenvu.backend.ai.entity.ConversationMessage> history = 
+            conversationService.getConversationHistory(sessionId, 10);
+        
+        // Update conversation title from first message if not set
+        if (conversation.getTitle() == null || conversation.getTitle().equals("New Conversation")) {
+            String title = message.length() > 50 ? message.substring(0, 50) + "..." : message;
+            conversationService.updateConversationTitle(conversation, title);
         }
 
         // Runtime tool-first: explicit tool call "tool.<name> {json}"
@@ -47,10 +66,13 @@ public class AiOrchestratorService {
         if (looksLikePolicyQuestion(message)) {
             // Tool-first: route to policy retriever+composer
             String answer = policyQAService.ask(message);
+            // Save assistant message
+            conversationService.saveAssistantMessage(conversation, answer, true, null);
+            
             return ChatAskResponse.builder()
                     .answer(answer)
                     .usedTools(true)
-                    .sessionId(req.getSessionId())
+                    .sessionId(sessionId)
                     .build();
         }
 
@@ -84,10 +106,13 @@ public class AiOrchestratorService {
                             " chuyến phù hợp. Ví dụ: " + formatFlightSample(result);
                 }
                 
+                // Save assistant message
+                conversationService.saveAssistantMessage(conversation, answer, true, null);
+                
                 return ChatAskResponse.builder()
                         .answer(answer)
                         .usedTools(true)
-                        .sessionId(req.getSessionId())
+                        .sessionId(sessionId)
                         .flightResults(result)
                         .build();
             } catch (IllegalArgumentException e) {
@@ -98,41 +123,63 @@ public class AiOrchestratorService {
                                 "Vui lòng cung cấp đầy đủ thông tin: sân bay đi, sân bay đến, và ngày bay. " +
                                 "Ví dụ: 'danh sách chuyến bay ngày 12 tháng 11 năm 2025 từ Sài gòn đến Hà nội'")
                         .usedTools(false)
-                        .sessionId(req.getSessionId())
+                        .sessionId(sessionId)
                         .build();
             } catch (Exception e) {
                 log.error("Error searching flights: {}", e.getMessage(), e);
                 return ChatAskResponse.builder()
                         .answer("Xin lỗi, đã xảy ra lỗi khi tìm kiếm chuyến bay. Vui lòng thử lại sau.")
                         .usedTools(false)
-                        .sessionId(req.getSessionId())
+                        .sessionId(sessionId)
                         .build();
             }
         }
 
-        // Fallback: Use LLM with automatic tool calling
+        // Fallback: Use LLM with automatic tool calling and conversation history
         try {
+            // Build conversation context from history
+            StringBuilder contextBuilder = new StringBuilder();
+            if (!history.isEmpty()) {
+                List<ChatAskRequest.ChatMessage> chatHistory = conversationService.toChatMessages(history);
+                contextBuilder.append("Ngữ cảnh cuộc hội thoại trước đó:\n\n");
+                for (ChatAskRequest.ChatMessage histMsg : chatHistory) {
+                    if ("user".equals(histMsg.getRole())) {
+                        contextBuilder.append("Khách hàng: ").append(histMsg.getContent()).append("\n\n");
+                    } else if ("assistant".equals(histMsg.getRole())) {
+                        contextBuilder.append("Trợ lý: ").append(histMsg.getContent()).append("\n\n");
+                    }
+                }
+                contextBuilder.append("---\n\n");
+            }
+            
+            // Build final user message with context
+            String userMessageWithContext = contextBuilder.toString() + 
+                "Câu hỏi hiện tại của khách hàng: " + message;
+            
             var result = chatClient
                     .prompt()
-                    .user(message)
+                    .user(userMessageWithContext)
                     .call()
                     .content();
 
             boolean usedTools = result != null && result.contains("[Tool]") || 
                                message.toLowerCase().contains("tool.");
+            
+            // Save assistant message
+            conversationService.saveAssistantMessage(conversation, result, usedTools, null);
 
             return ChatAskResponse.builder()
                     .answer(result != null ? result : "Xin lỗi, tôi không thể xử lý yêu cầu này.")
                     .usedTools(usedTools)
                     .model("gemini-2.5-flash")
-                    .sessionId(req.getSessionId())
+                    .sessionId(sessionId)
                     .build();
         } catch (Exception e) {
             log.error("Error in LLM chat: {}", e.getMessage(), e);
             return ChatAskResponse.builder()
                     .answer("Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại.")
                     .usedTools(false)
-                    .sessionId(req.getSessionId())
+                    .sessionId(sessionId)
                     .build();
         }
     }

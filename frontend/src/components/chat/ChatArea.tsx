@@ -97,7 +97,15 @@ export function ChatArea({ onShowRightPanel, newChatTrigger }: ChatAreaProps) {
     setIsTyping(true);
 
     try {
-      const response = await apiClient.chatAsk(currentInput, sessionId, "vi");
+      // Prepare conversation history (last 10 messages excluding current)
+      const history = messages
+        .slice(-10)
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+      
+      const response = await apiClient.chatAsk(currentInput, sessionId, "vi", history);
 
       const aiMessage: ChatMessageType = {
         id: (Date.now() + 1).toString(),
