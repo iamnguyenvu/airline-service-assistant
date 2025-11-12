@@ -137,13 +137,26 @@ public class FlightSearchService {
                unless = "#result == null || #result.flights.isEmpty()")
     public FlightSearchResult getTodayFlights(int limit) {
         LocalDate today = LocalDate.now();
-        log.info("Getting today's flights (limit: {})", limit);
+        log.info("Getting today's flights (limit: {}) for date: {}", limit, today);
         
         // Priority 1: Domestic Vietnam flights
         List<FlightSnapshot> domesticFlights = flightSnapshotRepository.findTodayDomesticFlights(today);
+        log.debug("Found {} domestic flights for {}", domesticFlights.size(), today);
         
         // Priority 2: Vietnam to international flights
         List<FlightSnapshot> internationalFlights = flightSnapshotRepository.findTodayInternationalFlights(today);
+        log.debug("Found {} international flights for {}", internationalFlights.size(), today);
+        
+        // If no flights for today, try to get flights from nearby dates (yesterday, tomorrow) as fallback
+        if (domesticFlights.isEmpty() && internationalFlights.isEmpty()) {
+            log.warn("No flights found for today ({}). Checking nearby dates...", today);
+            // Try tomorrow (T+1) - ingestion usually runs for T+1
+            LocalDate tomorrow = today.plusDays(1);
+            domesticFlights = flightSnapshotRepository.findTodayDomesticFlights(tomorrow);
+            internationalFlights = flightSnapshotRepository.findTodayInternationalFlights(tomorrow);
+            log.info("Found {} domestic and {} international flights for tomorrow ({})", 
+                domesticFlights.size(), internationalFlights.size(), tomorrow);
+        }
         
         // Combine and limit
         List<FlightSnapshot> allFlights = new java.util.ArrayList<>();
@@ -155,8 +168,8 @@ public class FlightSearchService {
             .limit(limit)
             .toList();
         
-        log.info("Found {} domestic and {} international flights for today (returning {})", 
-            domesticFlights.size(), internationalFlights.size(), limitedFlights.size());
+        log.info("Returning {} flights ({} domestic, {} international) for date: {}", 
+            limitedFlights.size(), domesticFlights.size(), internationalFlights.size(), today);
         
         return FlightSearchResult.builder()
             .flights(limitedFlights)

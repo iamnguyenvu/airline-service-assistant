@@ -97,25 +97,39 @@ public interface FlightSnapshotRepository extends JpaRepository<FlightSnapshot, 
     // === Today's Flights (Prioritized) ===
     // Vietnam airports: major airports in Vietnam (SGN, HAN, DAD, HPH, CXR, DLI, PQC, VCL, VCS, BMV, VKG, VII, VDH, THD, TBB, UIH, VDO, VIN)
     
-    /** Find flights for today - domestic Vietnam flights first */
+    /** Find flights for a specific date - domestic Vietnam flights first */
     @Query("""
         SELECT f FROM FlightSnapshot f
-        WHERE f.snapshotDate = :today
+        WHERE f.snapshotDate = :date
           AND f.depIata IN ('SGN','HAN','DAD','HPH','CXR','DLI','PQC','VCL','VCS','BMV','VKG','VII','VDH','THD','TBB','UIH','VDO','VIN')
           AND f.arrIata IN ('SGN','HAN','DAD','HPH','CXR','DLI','PQC','VCL','VCS','BMV','VKG','VII','VDH','THD','TBB','UIH','VDO','VIN')
         ORDER BY f.depTime ASC
         """)
-    List<FlightSnapshot> findTodayDomesticFlights(@Param("today") LocalDate today);
+    List<FlightSnapshot> findTodayDomesticFlights(@Param("date") LocalDate date);
     
-    /** Find flights for today - Vietnam to international */
+    /** Find flights for a specific date - Vietnam to international */
     @Query("""
         SELECT f FROM FlightSnapshot f
-        WHERE f.snapshotDate = :today
+        WHERE f.snapshotDate = :date
           AND f.depIata IN ('SGN','HAN','DAD','HPH','CXR','DLI','PQC','VCL','VCS','BMV','VKG','VII','VDH','THD','TBB','UIH','VDO','VIN')
           AND f.arrIata NOT IN ('SGN','HAN','DAD','HPH','CXR','DLI','PQC','VCL','VCS','BMV','VKG','VII','VDH','THD','TBB','UIH','VDO','VIN')
         ORDER BY f.depTime ASC
         """)
-    List<FlightSnapshot> findTodayInternationalFlights(@Param("today") LocalDate today);
+    List<FlightSnapshot> findTodayInternationalFlights(@Param("date") LocalDate date);
+    
+    /** Count total flights in database (for debugging) */
+    @Query("SELECT COUNT(f) FROM FlightSnapshot f")
+    long countAllFlights();
+    
+    /** Find any flights for a date range (for debugging) - returns first 100 */
+    @Query("""
+        SELECT f FROM FlightSnapshot f
+        WHERE f.snapshotDate BETWEEN :startDate AND :endDate
+        ORDER BY f.snapshotDate ASC, f.depTime ASC
+        """)
+    List<FlightSnapshot> findFlightsInDateRange(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate);
 
     // === Specification-Based Search ===
     
