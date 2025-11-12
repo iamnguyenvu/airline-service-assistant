@@ -43,7 +43,12 @@ class ApiClient {
   }
 
   // Chat API
-  async chatAsk(message: string, sessionId?: string, locale?: string) {
+  async chatAsk(
+    message: string, 
+    sessionId?: string, 
+    locale?: string,
+    conversationHistory?: Array<{ role: string; content: string }>
+  ) {
     return this.request<{
       answer: string;
       usedTools: boolean;
@@ -70,7 +75,12 @@ class ApiClient {
       };
     }>('/api/chat/ask', {
       method: 'POST',
-      body: JSON.stringify({ message, sessionId, locale }),
+      body: JSON.stringify({ 
+        message, 
+        sessionId, 
+        locale,
+        conversationHistory 
+      }),
     });
   }
 
@@ -158,6 +168,13 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ text, metadata }),
     });
+  }
+
+  // Flight API - Get today's flights
+  async getTodayFlights(limit: number = 20) {
+    return this.request<import('./types').FlightSearchResult>(
+      `/api/flights/today?limit=${limit}`
+    );
   }
 }
 

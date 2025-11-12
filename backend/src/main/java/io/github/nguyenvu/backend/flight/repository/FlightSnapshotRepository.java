@@ -94,6 +94,29 @@ public interface FlightSnapshotRepository extends JpaRepository<FlightSnapshot, 
     @Query("DELETE FROM FlightSnapshot f WHERE f.snapshotDate < :cutoffDate")
     int deleteBySnapshotDateBefore(@Param("cutoffDate") LocalDate cutoffDate);
 
+    // === Today's Flights (Prioritized) ===
+    // Vietnam airports: major airports in Vietnam (SGN, HAN, DAD, HPH, CXR, DLI, PQC, VCL, VCS, BMV, VKG, VII, VDH, THD, TBB, UIH, VDO, VIN)
+    
+    /** Find flights for today - domestic Vietnam flights first */
+    @Query("""
+        SELECT f FROM FlightSnapshot f
+        WHERE f.snapshotDate = :today
+          AND f.depIata IN ('SGN','HAN','DAD','HPH','CXR','DLI','PQC','VCL','VCS','BMV','VKG','VII','VDH','THD','TBB','UIH','VDO','VIN')
+          AND f.arrIata IN ('SGN','HAN','DAD','HPH','CXR','DLI','PQC','VCL','VCS','BMV','VKG','VII','VDH','THD','TBB','UIH','VDO','VIN')
+        ORDER BY f.depTime ASC
+        """)
+    List<FlightSnapshot> findTodayDomesticFlights(@Param("today") LocalDate today);
+    
+    /** Find flights for today - Vietnam to international */
+    @Query("""
+        SELECT f FROM FlightSnapshot f
+        WHERE f.snapshotDate = :today
+          AND f.depIata IN ('SGN','HAN','DAD','HPH','CXR','DLI','PQC','VCL','VCS','BMV','VKG','VII','VDH','THD','TBB','UIH','VDO','VIN')
+          AND f.arrIata NOT IN ('SGN','HAN','DAD','HPH','CXR','DLI','PQC','VCL','VCS','BMV','VKG','VII','VDH','THD','TBB','UIH','VDO','VIN')
+        ORDER BY f.depTime ASC
+        """)
+    List<FlightSnapshot> findTodayInternationalFlights(@Param("today") LocalDate today);
+
     // === Specification-Based Search ===
     
     /** Search with complex criteria (uses FlightSnapshotSpecifications) */

@@ -12,8 +12,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class PolicyRetrieverService {
-    private static final int DEFAULT_TOPK = 8;
-    private static final double DEFAULT_SIM_THRESHOLD = 0.55;
+    private static final int DEFAULT_TOPK = 10; // Increased from 8 to get more context
+    private static final double DEFAULT_SIM_THRESHOLD = 0.50; // Lowered slightly to get more relevant results
 
     private final VectorStore vectorStore;
 
