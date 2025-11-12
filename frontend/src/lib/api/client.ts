@@ -159,6 +159,13 @@ class ApiClient {
       body: JSON.stringify({ text, metadata }),
     });
   }
+
+  // Flight API - Get today's flights
+  async getTodayFlights(limit: number = 20) {
+    return this.request<import('./types').FlightSearchResult>(
+      `/api/flights/today?limit=${limit}`
+    );
+  }
 }
 
 export const apiClient = new ApiClient();

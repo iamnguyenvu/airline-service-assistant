@@ -6,14 +6,12 @@ import {
   MessageSquare,
   History,
   Settings,
-  FileText,
   ChevronLeft,
   ChevronRight,
   Moon,
   Sun,
   Plane,
   Plus,
-  Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -22,19 +20,24 @@ import { cn } from '@/lib/utils';
 interface SidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
+  onNewChat?: () => void;
 }
 
-export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ collapsed, onToggleCollapse, onNewChat }: SidebarProps) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
   const router = useRouter();
 
+  // TODO: Add auth check later - for now, only show Chat and History for guest users
+  // Admin users will see additional items: ingestion, upload, etc.
   const menuItems = [
     { id: 'chat', icon: MessageSquare, label: 'Chat Tư Vấn', href: '/' },
+    { id: 'today-flights', icon: Plane, label: 'Chuyến Bay Hôm Nay', href: '/today-flights' },
     { id: 'history', icon: History, label: 'Lịch Sử Chat', href: '/history' },
-    { id: 'ingestion', icon: Upload, label: 'Quản Lý Dữ Liệu', href: '/ingestion' },
-    { id: 'upload', icon: FileText, label: 'Upload Tài Liệu', href: '/upload' },
-    { id: 'terms', icon: FileText, label: 'Điều Khoản', href: '/terms' },
+    // Admin-only items (will be shown when auth is implemented)
+    // { id: 'ingestion', icon: Upload, label: 'Quản Lý Dữ Liệu', href: '/ingestion' },
+    // { id: 'upload', icon: FileText, label: 'Upload Tài Liệu', href: '/upload' },
+    // { id: 'terms', icon: FileText, label: 'Điều Khoản', href: '/terms' },
   ];
 
   return (
@@ -49,7 +52,7 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
         {!collapsed && (
           <div className="flex items-center gap-2">
             <Plane className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-lg">Airline AI Servant</span>
+            <span className="font-semibold text-lg">Airline Servant</span>
           </div>
         )}
         {collapsed && <Plane className="h-6 w-6 text-primary mx-auto" />}
@@ -74,13 +77,19 @@ export function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
               variant="default"
               className="w-full justify-start gap-2 mb-4"
               size="sm"
+              onClick={onNewChat}
             >
               <Plus className="h-4 w-4" />
               Chat Mới
             </Button>
           )}
           {collapsed && (
-            <Button variant="default" size="icon" className="w-full mb-4">
+            <Button 
+              variant="default" 
+              size="icon" 
+              className="w-full mb-4"
+              onClick={onNewChat}
+            >
               <Plus className="h-4 w-4" />
             </Button>
           )}

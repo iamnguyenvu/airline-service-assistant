@@ -15,6 +15,7 @@ export function ChatInterface() {
     data?: unknown;
   } | null>(null);
   const [mobileActiveItem, setMobileActiveItem] = useState('chat');
+  const [newChatTrigger, setNewChatTrigger] = useState(0);
 
   return (
     <>
@@ -22,6 +23,7 @@ export function ChatInterface() {
         <Sidebar
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+          onNewChat={() => setNewChatTrigger(prev => prev + 1)}
         />
 
         <div className="flex flex-1 flex-col">
@@ -31,6 +33,7 @@ export function ChatInterface() {
               setRightPanelContent(content);
               setRightPanelOpen(true);
             }}
+            newChatTrigger={newChatTrigger}
           />
         </div>
 

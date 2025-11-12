@@ -230,4 +230,28 @@ public class FlightSearchController {
         PriceStatistics stats = flightSearchService.getPriceStatistics(dep, arr, date);
         return ResponseEntity.ok(stats);
     }
+
+    /**
+     * Get flights for today, prioritized: domestic Vietnam flights first, then Vietnam to international.
+     * Results are cached to avoid excessive API calls.
+     * 
+     * GET /api/flights/today?limit=20
+     */
+    @GetMapping("/today")
+    @Operation(
+        summary = "Get flights for today",
+        description = "Get flights for today, prioritized: domestic Vietnam flights first, then Vietnam to international. Results are cached."
+    )
+    public ResponseEntity<FlightSearchResult> getTodayFlights(
+            @RequestParam(defaultValue = "20") 
+                @Parameter(description = "Number of results (max 50)", example = "20") 
+                int limit) {
+        
+        log.info("GET /api/flights/today - limit: {}", limit);
+        
+        limit = Math.min(limit, 50);
+        
+        FlightSearchResult result = flightSearchService.getTodayFlights(limit);
+        return ResponseEntity.ok(result);
+    }
 }

@@ -126,6 +126,53 @@ public class FlightSearchService {
     }
 
     /**
+     * Get flights for today, prioritized: domestic Vietnam flights first, then Vietnam to international.
+     * Results are cached for 30 minutes to avoid excessive API calls.
+     * 
+     * @param limit Maximum number of flights to return
+     * @return FlightSearchResult with prioritized flights
+     */
+    @Cacheable(value = "todayFlights", 
+               key = "'today-' + T(java.time.LocalDate).now().toString() + '-' + #limit",
+               unless = "#result == null || #result.flights.isEmpty()")
+    public FlightSearchResult getTodayFlights(int limit) {
+        LocalDate today = LocalDate.now();
+        log.info("Getting today's flights (limit: {})", limit);
+        
+        // Priority 1: Domestic Vietnam flights
+        List<FlightSnapshot> domesticFlights = flightSnapshotRepository.findTodayDomesticFlights(today);
+        
+        // Priority 2: Vietnam to international flights
+        List<FlightSnapshot> internationalFlights = flightSnapshotRepository.findTodayInternationalFlights(today);
+        
+        // Combine and limit
+        List<FlightSnapshot> allFlights = new java.util.ArrayList<>();
+        allFlights.addAll(domesticFlights);
+        allFlights.addAll(internationalFlights);
+        
+        // Limit to requested number
+        List<FlightSnapshot> limitedFlights = allFlights.stream()
+            .limit(limit)
+            .toList();
+        
+        log.info("Found {} domestic and {} international flights for today (returning {})", 
+            domesticFlights.size(), internationalFlights.size(), limitedFlights.size());
+        
+        return FlightSearchResult.builder()
+            .flights(limitedFlights)
+            .totalElements((long) allFlights.size())
+            .totalPages(1)
+            .currentPage(0)
+            .pageSize(limit)
+            .hasNext(allFlights.size() > limit)
+            .hasPrevious(false)
+            .searchCriteria(FlightSearchCriteria.builder()
+                .snapshotDate(today)
+                .build())
+            .build();
+    }
+
+    /**
      * Validate search criteria.
      */
     private void validateSearchCriteria(FlightSearchCriteria criteria) {

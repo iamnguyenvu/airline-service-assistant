@@ -9,6 +9,8 @@ import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
+@lombok.Builder
+@lombok.AllArgsConstructor
 public class FlightSearchCriteria {
     @Pattern(regexp = "^[A-Za-z]{3}$", message = "depIata must be 3 letters (IATA)")
     private String depIata;

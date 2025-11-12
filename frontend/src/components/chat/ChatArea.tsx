@@ -12,18 +12,16 @@ import { useToast } from "@/hooks/use-toast";
 
 interface ChatAreaProps {
   onShowRightPanel: (content: { type: "flights" | "policy" | "tips"; data?: unknown }) => void;
+  onNewChat?: () => void;
+  newChatTrigger?: number;
 }
 
-export function ChatArea({ onShowRightPanel }: ChatAreaProps) {
-  const [messages, setMessages] = useState<ChatMessageType[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content:
-        "Xin chào! Tôi là trợ lý AI của hãng hàng không. Tôi có thể giúp bạn:\n\n• Tìm kiếm chuyến bay\n• Tư vấn về chính sách hành lý\n• Tra cứu thông tin dịch vụ\n• Giải đáp thắc mắc\n\nBạn cần tôi hỗ trợ điều gì?",
-      timestamp: new Date(),
-    },
-  ]);
+export function ChatArea({ onShowRightPanel, newChatTrigger }: ChatAreaProps) {
+  const welcomeMessage = "Xin chào! Tôi là trợ lý AI của hãng hàng không. Tôi có thể giúp bạn:\n\n• Tìm kiếm chuyến bay\n• Tư vấn về chính sách hành lý\n• Tra cứu thông tin dịch vụ\n• Giải đáp thắc mắc\n\nBạn cần tôi hỗ trợ điều gì?";
+  
+  const [messages, setMessages] = useState<ChatMessageType[]>([]);
+  const [isTypingWelcome, setIsTypingWelcome] = useState(false);
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [sessionId] = useState(() => `session-${Date.now()}`);
@@ -31,11 +29,57 @@ export function ChatArea({ onShowRightPanel }: ChatAreaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
+  // Function to start new chat
+  const handleNewChat = useCallback(() => {
+    setMessages([]);
+    setIsTypingWelcome(true);
+    setHasShownWelcome(false);
+    setInput("");
+  }, []);
+
+  // Reset chat when newChatTrigger changes
+  useEffect(() => {
+    if (newChatTrigger && newChatTrigger > 0) {
+      handleNewChat();
+    }
+  }, [newChatTrigger, handleNewChat]);
+
+  // Show welcome message with typing animation on mount or new chat
+  useEffect(() => {
+    if (!hasShownWelcome && messages.length === 0) {
+      setIsTypingWelcome(true);
+      setHasShownWelcome(true);
+    }
+  }, [hasShownWelcome, messages.length]);
+
+  // Typing animation for welcome message
+  useEffect(() => {
+    if (isTypingWelcome && messages.length === 0) {
+      let currentIndex = 0;
+      const typingInterval = setInterval(() => {
+        if (currentIndex < welcomeMessage.length) {
+          setMessages([{
+            id: "1",
+            role: "assistant",
+            content: welcomeMessage.substring(0, currentIndex + 1),
+            timestamp: new Date(),
+          }]);
+          currentIndex++;
+        } else {
+          setIsTypingWelcome(false);
+          clearInterval(typingInterval);
+        }
+      }, 30); // 30ms per character for smooth typing effect
+
+      return () => clearInterval(typingInterval);
+    }
+  }, [isTypingWelcome, welcomeMessage, messages.length]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isTypingWelcome]);
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || isTyping) return;
