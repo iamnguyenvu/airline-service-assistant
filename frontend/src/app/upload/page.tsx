@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Upload, Loader2, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
+import { Upload, Loader2, CheckCircle2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function UploadPage() {
