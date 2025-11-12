@@ -153,7 +153,7 @@ class ApiClient {
   }
 
   // Policy Ingestion API
-  async ingestRawText(text: string, metadata: Record<string, any>) {
+  async ingestRawText(text: string, metadata: Record<string, unknown>) {
     return this.request<{ message: string }>('/api/policy/ingest', {
       method: 'POST',
       body: JSON.stringify({ text, metadata }),

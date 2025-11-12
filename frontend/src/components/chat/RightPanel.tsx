@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import type { FlightSearchResult } from '@/lib/api/types';
 
 interface RightPanelProps {
   isOpen: boolean;
@@ -66,9 +67,9 @@ function FlightResults({ data }: FlightResultsProps) {
   }> = [];
 
   if (data && typeof data === 'object' && 'flights' in data) {
-    const flightData = data as { flights?: unknown[] };
+    const flightData = data as FlightSearchResult;
     if (Array.isArray(flightData.flights)) {
-      flights = flightData.flights.map((f: any, index: number) => ({
+      flights = flightData.flights.map((f, index: number) => ({
         id: f.id?.toString() || index.toString(),
         carrier: f.carrier || '',
         flightNo: f.flightNo || '',

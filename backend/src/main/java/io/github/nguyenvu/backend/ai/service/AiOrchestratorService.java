@@ -56,18 +56,58 @@ public class AiOrchestratorService {
 
         if (looksLikeFlightSearch(message)) {
             // Tool-first: route to flight search service
-            var criteria = parseBasicCriteria(message);
-            var result = flightSearchService.search(criteria, 0, 10);
-            String answer = "Tìm thấy " + result.getTotalElements() +
-                    " chuyến phù hợp. Ví dụ: " +
-                    (result.getFlights().isEmpty() ? "không có chuyến phù hợp." :
-                            formatFlightSample(result));
-            return ChatAskResponse.builder()
-                    .answer(answer)
-                    .usedTools(true)
-                    .sessionId(req.getSessionId())
-                    .flightResults(result)
-                    .build();
+            try {
+                var criteria = parseBasicCriteria(message);
+                var result = flightSearchService.search(criteria, 0, 10);
+                
+                String answer;
+                if (result.getTotalElements() == 0 || result.getFlights().isEmpty()) {
+                    // No flights found - provide helpful message
+                    if (criteria.getDepIata() != null && criteria.getArrIata() != null) {
+                        answer = "Không tìm thấy chuyến bay nào từ " + criteria.getDepIata() + 
+                                " đến " + criteria.getArrIata() + 
+                                " vào ngày " + (criteria.getSnapshotDate() != null ? criteria.getSnapshotDate() : "đã chọn") + 
+                                ". Vui lòng thử lại với ngày khác hoặc tuyến bay khác.";
+                    } else if (criteria.getArrIata() != null) {
+                        answer = "Không tìm thấy chuyến bay nào đến " + criteria.getArrIata() + 
+                                " vào ngày " + (criteria.getSnapshotDate() != null ? criteria.getSnapshotDate() : "đã chọn") + 
+                                ". Vui lòng thử lại với ngày khác.";
+                    } else if (criteria.getDepIata() != null) {
+                        answer = "Không tìm thấy chuyến bay nào từ " + criteria.getDepIata() + 
+                                " vào ngày " + (criteria.getSnapshotDate() != null ? criteria.getSnapshotDate() : "đã chọn") + 
+                                ". Vui lòng thử lại với ngày khác.";
+                    } else {
+                        answer = "Không tìm thấy chuyến bay phù hợp. Vui lòng cung cấp thông tin chi tiết hơn (sân bay đi, sân bay đến, ngày bay).";
+                    }
+                } else {
+                    answer = "Tìm thấy " + result.getTotalElements() + 
+                            " chuyến phù hợp. Ví dụ: " + formatFlightSample(result);
+                }
+                
+                return ChatAskResponse.builder()
+                        .answer(answer)
+                        .usedTools(true)
+                        .sessionId(req.getSessionId())
+                        .flightResults(result)
+                        .build();
+            } catch (IllegalArgumentException e) {
+                // Invalid criteria - return helpful error message
+                log.warn("Invalid flight search criteria: {}", e.getMessage());
+                return ChatAskResponse.builder()
+                        .answer("Xin lỗi, tôi không thể tìm chuyến bay với thông tin bạn cung cấp. " +
+                                "Vui lòng cung cấp đầy đủ thông tin: sân bay đi, sân bay đến, và ngày bay. " +
+                                "Ví dụ: 'danh sách chuyến bay ngày 12 tháng 11 năm 2025 từ Sài gòn đến Hà nội'")
+                        .usedTools(false)
+                        .sessionId(req.getSessionId())
+                        .build();
+            } catch (Exception e) {
+                log.error("Error searching flights: {}", e.getMessage(), e);
+                return ChatAskResponse.builder()
+                        .answer("Xin lỗi, đã xảy ra lỗi khi tìm kiếm chuyến bay. Vui lòng thử lại sau.")
+                        .usedTools(false)
+                        .sessionId(req.getSessionId())
+                        .build();
+            }
         }
 
         // Fallback: Use LLM with automatic tool calling
@@ -188,24 +228,37 @@ public class AiOrchestratorService {
         var c = new io.github.nguyenvu.backend.flight.dto.FlightSearchCriteria();
         String t = text.toUpperCase();
         
-        // Map airport names to IATA codes
+        // Map airport names to IATA codes (with and without diacritics)
         java.util.Map<String, String> airportMap = new java.util.HashMap<>();
+        // Tan Son Nhat / SGN
         airportMap.put("TÂN SƠN NHẤT", "SGN");
+        airportMap.put("TAN SON NHAT", "SGN");
         airportMap.put("SÀI GÒN", "SGN");
+        airportMap.put("SAI GON", "SGN");
         airportMap.put("TP.HCM", "SGN");
         airportMap.put("TP HCM", "SGN");
         airportMap.put("THÀNH PHỐ HỒ CHÍ MINH", "SGN");
+        airportMap.put("THANH PHO HO CHI MINH", "SGN");
+        // Noi Bai / HAN
         airportMap.put("NỘI BÀI", "HAN");
+        airportMap.put("NOI BAI", "HAN");
         airportMap.put("HÀ NỘI", "HAN");
-        airportMap.put("HÀ NỘI", "HAN");
+        airportMap.put("HA NOI", "HAN");
+        // Other airports
         airportMap.put("ĐÀ NẴNG", "DAD");
+        airportMap.put("DA NANG", "DAD");
         airportMap.put("PHÚ QUỐC", "PQC");
+        airportMap.put("PHU QUOC", "PQC");
         airportMap.put("CẦN THƠ", "VCA");
+        airportMap.put("CAN THO", "VCA");
         airportMap.put("VINH", "VII");
         airportMap.put("CÁT BI", "HPH");
+        airportMap.put("CAT BI", "HPH");
         airportMap.put("CAM RANH", "CXR");
         airportMap.put("VÂN ĐỒN", "VDO");
+        airportMap.put("VAN DON", "VDO");
         airportMap.put("ĐÀ LẠT", "DLI");
+        airportMap.put("DA LAT", "DLI");
         airportMap.put("CHU LAI", "VCL");
         
         // Try to find route pattern first (e.g., "SGN-HAN")
@@ -305,10 +358,12 @@ public class AiOrchestratorService {
                     c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
                 }
             } else {
-                // Check for "hôm nay", "ngày mai", etc.
-                if (t.contains("HÔM NAY") || t.contains("TODAY")) {
+                // Check for "hôm nay", "hôm qua", "ngày mai", etc.
+                if (t.contains("HÔM NAY") || t.contains("HOM NAY") || t.contains("TODAY")) {
                     c.setSnapshotDate(java.time.LocalDate.now());
-                } else if (t.contains("NGÀY MAI") || t.contains("TOMORROW")) {
+                } else if (t.contains("HÔM QUA") || t.contains("HOM QUA") || t.contains("YESTERDAY")) {
+                    c.setSnapshotDate(java.time.LocalDate.now().minusDays(1));
+                } else if (t.contains("NGÀY MAI") || t.contains("NGAY MAI") || t.contains("TOMORROW")) {
                     c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
                 } else {
                     c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));

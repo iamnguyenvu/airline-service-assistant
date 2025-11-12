@@ -12,6 +12,7 @@ import { Loader2, Play, CheckCircle2, AlertCircle, Plane } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { FlightIngestionTestResult } from '@/lib/api/types';
 
 export function FlightIngestionTab() {
   const [date, setDate] = useState(() => {
@@ -23,7 +24,7 @@ export function FlightIngestionTab() {
   const [dep, setDep] = useState('');
   const [arr, setArr] = useState('');
   const [isTesting, setIsTesting] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<FlightIngestionTestResult | null>(null);
 
   const handleTest = async () => {
     if (!date) {
@@ -162,7 +163,7 @@ export function FlightIngestionTab() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {result.sample.map((flight: any, index: number) => (
+                      {result.sample.map((flight, index: number) => (
                         <TableRow key={index}>
                           <TableCell className="font-medium">{flight.route}</TableCell>
                           <TableCell>{flight.flightNo}</TableCell>

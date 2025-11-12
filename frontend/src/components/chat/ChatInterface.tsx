@@ -12,7 +12,7 @@ export function ChatInterface() {
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightPanelContent, setRightPanelContent] = useState<{
     type: 'flights' | 'policy' | 'tips';
-    data?: any;
+    data?: unknown;
   } | null>(null);
   const [mobileActiveItem, setMobileActiveItem] = useState('chat');
 

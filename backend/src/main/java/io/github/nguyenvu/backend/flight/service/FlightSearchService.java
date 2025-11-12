@@ -133,12 +133,12 @@ public class FlightSearchService {
             throw new IllegalArgumentException("Search criteria cannot be null");
         }
         
-        if (criteria.getDepIata() == null || criteria.getDepIata().trim().isEmpty()) {
-            throw new IllegalArgumentException("Departure airport required");
-        }
+        // At least one airport (departure or arrival) must be specified
+        boolean hasDep = criteria.getDepIata() != null && !criteria.getDepIata().trim().isEmpty();
+        boolean hasArr = criteria.getArrIata() != null && !criteria.getArrIata().trim().isEmpty();
         
-        if (criteria.getArrIata() == null || criteria.getArrIata().trim().isEmpty()) {
-            throw new IllegalArgumentException("Arrival airport required");
+        if (!hasDep && !hasArr) {
+            throw new IllegalArgumentException("At least one airport (departure or arrival) is required");
         }
         
         if (criteria.getSnapshotDate() == null && criteria.getStartDate() == null) {
