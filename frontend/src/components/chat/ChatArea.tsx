@@ -54,26 +54,27 @@ export function ChatArea({ onShowRightPanel, newChatTrigger }: ChatAreaProps) {
 
   // Typing animation for welcome message
   useEffect(() => {
-    if (isTypingWelcome && messages.length === 0) {
-      let currentIndex = 0;
-      const typingInterval = setInterval(() => {
-        if (currentIndex < welcomeMessage.length) {
-          setMessages([{
-            id: "1",
-            role: "assistant",
-            content: welcomeMessage.substring(0, currentIndex + 1),
-            timestamp: new Date(),
-          }]);
-          currentIndex++;
-        } else {
-          setIsTypingWelcome(false);
-          clearInterval(typingInterval);
-        }
-      }, 30); // 30ms per character for smooth typing effect
+    if (!isTypingWelcome) return;
+    
+    let currentIndex = 0;
+    const typingInterval = setInterval(() => {
+      if (currentIndex < welcomeMessage.length) {
+        const newContent = welcomeMessage.substring(0, currentIndex + 1);
+        setMessages([{
+          id: "1",
+          role: "assistant",
+          content: newContent,
+          timestamp: new Date(),
+        }]);
+        currentIndex++;
+      } else {
+        setIsTypingWelcome(false);
+        clearInterval(typingInterval);
+      }
+    }, 30); // 30ms per character for smooth typing effect
 
-      return () => clearInterval(typingInterval);
-    }
-  }, [isTypingWelcome, welcomeMessage, messages.length]);
+    return () => clearInterval(typingInterval);
+  }, [isTypingWelcome, welcomeMessage]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -91,61 +92,66 @@ export function ChatArea({ onShowRightPanel, newChatTrigger }: ChatAreaProps) {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
     const currentInput = input.trim();
     setInput("");
     setIsTyping(true);
 
-    try {
-      // Prepare conversation history (last 10 messages excluding current)
-      const history = messages
+    // Use functional update to get latest messages including the new user message
+    setMessages((prevMessages) => {
+      const updatedMessages = [...prevMessages, userMessage];
+      
+      // Prepare conversation history (last 10 messages including the new user message)
+      const history = updatedMessages
         .slice(-10)
         .map(msg => ({
           role: msg.role,
           content: msg.content,
         }));
       
-      const response = await apiClient.chatAsk(currentInput, sessionId, "vi", history);
+      // Call API asynchronously
+      apiClient.chatAsk(currentInput, sessionId, "vi", history).then((response) => {
+        const aiMessage: ChatMessageType = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: response.answer,
+          timestamp: new Date(),
+          usedTools: response.usedTools,
+          model: response.model,
+        };
 
-      const aiMessage: ChatMessageType = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: response.answer,
-        timestamp: new Date(),
-        usedTools: response.usedTools,
-        model: response.model,
-      };
+        setMessages((msgs) => [...msgs, aiMessage]);
 
-      setMessages((prev) => [...prev, aiMessage]);
-
-      if (response.usedTools) {
-        const lowerContent = response.answer.toLowerCase();
-        if (response.flightResults) {
-          // Show flight results from API
-          onShowRightPanel({ type: "flights", data: response.flightResults });
-        } else if (lowerContent.includes("chuyến bay") || lowerContent.includes("flight")) {
-          onShowRightPanel({ type: "flights", data: { message: response.answer } });
-        } else if (lowerContent.includes("chính sách") || lowerContent.includes("policy")) {
-          onShowRightPanel({ type: "policy", data: { message: response.answer } });
+        if (response.usedTools) {
+          const lowerContent = response.answer.toLowerCase();
+          if (response.flightResults) {
+            // Show flight results from API
+            onShowRightPanel({ type: "flights", data: response.flightResults });
+          } else if (lowerContent.includes("chuyến bay") || lowerContent.includes("flight")) {
+            onShowRightPanel({ type: "flights", data: { message: response.answer } });
+          } else if (lowerContent.includes("chính sách") || lowerContent.includes("policy")) {
+            onShowRightPanel({ type: "policy", data: { message: response.answer } });
+          }
         }
-      }
-    } catch (error) {
-      console.error("Chat error:", error);
-      const errorMessage: ChatMessageType = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại sau.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-      toast({
-        title: "Lỗi",
-        description: error instanceof Error ? error.message : "Không thể kết nối đến server",
-        variant: "destructive",
+      }).catch((error) => {
+        console.error("Chat error:", error);
+        const errorMessage: ChatMessageType = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "Xin lỗi, đã xảy ra lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại sau.",
+          timestamp: new Date(),
+        };
+        setMessages((msgs) => [...msgs, errorMessage]);
+        toast({
+          title: "Lỗi",
+          description: error instanceof Error ? error.message : "Không thể kết nối đến server",
+          variant: "destructive",
+        });
+      }).finally(() => {
+        setIsTyping(false);
       });
-    } finally {
-      setIsTyping(false);
-    }
+      
+      return updatedMessages;
+    });
   }, [input, isTyping, sessionId, onShowRightPanel, toast]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -201,7 +207,7 @@ export function ChatArea({ onShowRightPanel, newChatTrigger }: ChatAreaProps) {
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi hoặc yêu cầu của bạn..."
                 className="placeholder:text-muted-foreground/60 max-h-[200px] min-h-11 flex-1 resize-none 
-                !border-0 border-0 bg-transparent p-0 !ring-0 !ring-offset-0 focus:border-transparent focus:ring-0 
+                border-0! bg-transparent p-0 ring-0! ring-offset-0! focus:border-transparent focus:ring-0 
                 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
                 rows={1}
               />
