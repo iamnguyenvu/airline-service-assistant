@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  output: 'standalone',
+  // Removed 'standalone' output for monorepo compatibility
+  // Use 'standalone' only in Docker/production builds if needed
   images: {
     remotePatterns: [
       {

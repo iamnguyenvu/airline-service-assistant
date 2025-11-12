@@ -69,7 +69,7 @@ public class PolicyIngestionService {
         try {
             log.info("Starting document ingestion: {} for airline: {}", file.getOriginalFilename(), airlineCode);
             
-            // Save document metadata to database
+            // 1. Save document metadata to database
             ServiceDocs serviceDoc = ServiceDocs.builder()
                     .airlineCode(airlineCode.toUpperCase())
                     .docType(docType)
@@ -81,14 +81,14 @@ public class PolicyIngestionService {
             serviceDoc = serviceDocsRepository.save(serviceDoc);
             String docId = serviceDoc.getId().toString();
             
-            // Extract text from uploaded file
+            // 2. Extract text from uploaded file
             String extractedText = extractTextFromFile(file);
             
-            // Update document with extracted text
+            // 3. Update document with extracted text
             serviceDoc.setRawText(extractedText);
             serviceDocsRepository.save(serviceDoc);
             
-            // Ingest with metadata
+            // 4. Use existing ingestRawTest method with metadata
             Map<String, Object> metadata = Map.of(
                 "source", file.getOriginalFilename(),
                 "airline_code", airlineCode,
@@ -131,9 +131,7 @@ public class PolicyIngestionService {
     @Transactional
     public void deleteDocument(Long docId) {
         log.info("Deleting document with ID: {}", docId);
-        
-        // Vector store cleanup should be handled where supported
-        
+
         serviceDocsRepository.deleteById(docId);
         log.info("Document {} deleted successfully", docId);
     }
