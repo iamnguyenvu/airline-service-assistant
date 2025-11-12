@@ -148,7 +148,9 @@ export function ChatArea({ onShowRightPanel }: ChatAreaProps) {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi hoặc yêu cầu của bạn..."
-                className="max-h-[200px] min-h-11 flex-1 resize-none border-0 bg-transparent p-0 placeholder:text-muted-foreground/60 focus-visible:ring-0"
+                className="placeholder:text-muted-foreground/60 max-h-[200px] min-h-11 flex-1 resize-none 
+                !border-0 border-0 bg-transparent p-0 !ring-0 !ring-offset-0 focus:border-transparent focus:ring-0 
+                focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
                 rows={1}
               />
 
