@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import io.github.nguyenvu.backend.ai.tool.EstimateCO2Tool;
+import io.github.nguyenvu.backend.ai.tool.GeneralKnowledgeTool;
 import io.github.nguyenvu.backend.ai.tool.LiveStatusTool;
 import io.github.nguyenvu.backend.ai.tool.RagPolicyTool;
 import io.github.nguyenvu.backend.ai.tool.SearchFlightsTool;
@@ -23,6 +24,7 @@ public class AiOrchestratorService {
     private final io.github.nguyenvu.backend.policy.service.PolicyQAService policyQAService;
     private final SearchFlightsTool searchFlightsTool;
     private final RagPolicyTool ragPolicyTool;
+    private final GeneralKnowledgeTool generalKnowledgeTool;
     private final EstimateCO2Tool estimateCO2Tool;
     private final LiveStatusTool liveStatusTool;
     private final ConversationService conversationService;
@@ -135,6 +137,34 @@ public class AiOrchestratorService {
             }
         }
 
+        // Try general knowledge RAG first for general queries
+        if (looksLikeGeneralQuestion(message)) {
+            try {
+                log.info("Attempting general knowledge RAG for query: {}", message);
+                GeneralKnowledgeTool.Request genReq = new GeneralKnowledgeTool.Request();
+                genReq.setQuery(message);
+                genReq.setTopK(5);
+                String genKnowledge = generalKnowledgeTool.apply(genReq);
+                
+                if (genKnowledge != null && !genKnowledge.contains("không tìm thấy") 
+                    && !genKnowledge.contains("không có thông tin")) {
+                    // Found relevant information, compose answer with LLM
+                    String composedAnswer = composeAnswerWithContext(message, genKnowledge, history);
+                    
+                    conversationService.saveAssistantMessage(conversation, composedAnswer, true, null);
+                    
+                    return ChatAskResponse.builder()
+                            .answer(composedAnswer)
+                            .usedTools(true)
+                            .model("gemini-2.5-flash")
+                            .sessionId(sessionId)
+                            .build();
+                }
+            } catch (Exception e) {
+                log.warn("General knowledge RAG failed, falling back to LLM: {}", e.getMessage());
+            }
+        }
+
         // Fallback: Use LLM with automatic tool calling and conversation history
         try {
             // Build conversation context from history
@@ -212,6 +242,11 @@ public class AiOrchestratorService {
                     var req = objectMapper.readValue(json, LiveStatusTool.Request.class);
                     var out = liveStatusTool.apply(req);
                     yield ChatAskResponse.builder().answer(objectMapper.writeValueAsString(out)).usedTools(true).sessionId(sessionId).build();
+                }
+                case "generalKnowledge" -> {
+                    var req = objectMapper.readValue(json, GeneralKnowledgeTool.Request.class);
+                    String answer = generalKnowledgeTool.apply(req);
+                    yield ChatAskResponse.builder().answer(answer).usedTools(true).sessionId(sessionId).build();
                 }
                 default -> ChatAskResponse.builder()
                         .answer("Tool không hỗ trợ: " + tool)
@@ -426,5 +461,73 @@ public class AiOrchestratorService {
         String price = f.getPriceCents() != null ? (f.getPriceCents() / 100) + "₫" : "N/A";
         return f.getCarrier() + " " + f.getFlightNo() + " • " + f.getDepIata() + "→" + f.getArrIata()
                 + " • " + (f.getDepTime() != null ? f.getDepTime() : "") + " • " + price;
+    }
+
+    /**
+     * Check if the message looks like a general question (not specifically about flights or policies)
+     */
+    private boolean looksLikeGeneralQuestion(String text) {
+        String t = text.toLowerCase();
+        
+        // If it's clearly a flight or policy question, return false
+        if (looksLikeFlightSearch(text) || looksLikePolicyQuestion(text)) {
+            return false;
+        }
+        
+        // General question indicators
+        return t.contains("là gì") || t.contains("là ai") || t.contains("như thế nào")
+                || t.contains("tại sao") || t.contains("vì sao") || t.contains("khi nào")
+                || t.contains("ở đâu") || t.contains("bao nhiêu") || t.contains("có thể")
+                || t.contains("cách") || t.contains("hướng dẫn") || t.contains("giúp")
+                || t.contains("thông tin") || t.contains("dịch vụ") || t.contains("check-in")
+                || t.contains("checkin") || t.contains("sân bay") || t.contains("airport")
+                || t.contains("thủ tục") || t.contains("cần") || t.contains("phải")
+                || t.matches(".*\\?.*") || t.matches(".*\\?$"); // Ends with question mark
+    }
+
+    /**
+     * Compose a natural answer using LLM with retrieved context
+     */
+    private String composeAnswerWithContext(String question, String context, 
+                                           List<io.github.nguyenvu.backend.ai.entity.ConversationMessage> history) {
+        try {
+            StringBuilder systemPrompt = new StringBuilder();
+            systemPrompt.append("Bạn là trợ lý tư vấn khách hàng chuyên nghiệp của hãng hàng không.\n");
+            systemPrompt.append("Nhiệm vụ của bạn là trả lời câu hỏi dựa trên thông tin được cung cấp.\n\n");
+            systemPrompt.append("Hướng dẫn:\n");
+            systemPrompt.append("1. Trả lời dựa trên CONTEXT được cung cấp\n");
+            systemPrompt.append("2. Nếu CONTEXT không đủ, hãy trả lời dựa trên kiến thức chung về hàng không\n");
+            systemPrompt.append("3. Trả lời một cách tự nhiên, thân thiện, dễ hiểu\n");
+            systemPrompt.append("4. Sử dụng ngôn ngữ tiếng Việt tự nhiên\n");
+            systemPrompt.append("5. Nếu không chắc chắn, hãy đề xuất khách hàng liên hệ trực tiếp\n");
+            
+            StringBuilder userPrompt = new StringBuilder();
+            if (!history.isEmpty()) {
+                userPrompt.append("Ngữ cảnh cuộc hội thoại trước:\n");
+                List<ChatAskRequest.ChatMessage> chatHistory = conversationService.toChatMessages(history);
+                for (ChatAskRequest.ChatMessage histMsg : chatHistory) {
+                    if ("user".equals(histMsg.getRole())) {
+                        userPrompt.append("Khách hàng: ").append(histMsg.getContent()).append("\n");
+                    } else if ("assistant".equals(histMsg.getRole())) {
+                        userPrompt.append("Trợ lý: ").append(histMsg.getContent()).append("\n");
+                    }
+                }
+                userPrompt.append("\n");
+            }
+            
+            userPrompt.append("CÂU HỎI: ").append(question).append("\n\n");
+            userPrompt.append("THÔNG TIN THAM KHẢO:\n").append(context).append("\n\n");
+            userPrompt.append("Hãy trả lời câu hỏi một cách tự nhiên và hữu ích.");
+            
+            return chatClient.prompt()
+                    .system(systemPrompt.toString())
+                    .user(userPrompt.toString())
+                    .call()
+                    .content();
+        } catch (Exception e) {
+            log.error("Error composing answer with context: {}", e.getMessage(), e);
+            // Fallback: return context directly
+            return "Dựa trên thông tin tìm được:\n\n" + context;
+        }
     }
 }

@@ -3,13 +3,13 @@ package io.github.nguyenvu.backend.policy.controller;
 import io.github.nguyenvu.backend.policy.dto.AskRequest;
 import io.github.nguyenvu.backend.policy.dto.AskWithFilterRequest;
 import io.github.nguyenvu.backend.policy.dto.IngestRequest;
+import io.github.nguyenvu.backend.policy.service.GeneralKnowledgeIngestionService;
 import io.github.nguyenvu.backend.policy.service.PolicyIngestionService;
 import io.github.nguyenvu.backend.policy.service.PolicyQAService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,6 +24,7 @@ import io.github.nguyenvu.backend.policy.entity.ServiceDocs;
 public class PolicyController {
     private final PolicyIngestionService policyIngestionService;
     private final PolicyQAService policyQAService;
+    private final GeneralKnowledgeIngestionService generalKnowledgeIngestionService;
 
     @Operation(summary = "Ingest raw policy text into vector store")
     @ApiResponse(responseCode = "200", description = "Ingestion successful")
@@ -75,6 +76,25 @@ public class PolicyController {
     public ResponseEntity<Map<String, String>> deleteDocument(@PathVariable Long id) {
         policyIngestionService.deleteDocument(id);
         return ResponseEntity.ok(Map.of("message", "Document deleted successfully"));
+    }
+
+    @Operation(summary = "Initialize common general knowledge and FAQ data")
+    @ApiResponse(responseCode = "200", description = "General knowledge initialized successfully")
+    @PostMapping("/general-knowledge/init")
+    public ResponseEntity<Map<String, String>> initializeGeneralKnowledge() {
+        generalKnowledgeIngestionService.initializeCommonKnowledge();
+        return ResponseEntity.ok(Map.of("message", "General knowledge initialized successfully"));
+    }
+
+    @Operation(summary = "Ingest general knowledge content")
+    @ApiResponse(responseCode = "200", description = "General knowledge ingested successfully")
+    @PostMapping("/general-knowledge/ingest")
+    public ResponseEntity<Map<String, String>> ingestGeneralKnowledge(
+            @RequestParam("content") String content,
+            @RequestParam(value = "category", defaultValue = "general") String category,
+            @RequestParam(value = "title", defaultValue = "General Information") String title) {
+        generalKnowledgeIngestionService.ingestGeneralKnowledge(content, category, title);
+        return ResponseEntity.ok(Map.of("message", "General knowledge ingested successfully"));
     }
 
 }
