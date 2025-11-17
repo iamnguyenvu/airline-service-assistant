@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -140,13 +141,14 @@ public class FlightSearchService {
     /**
      * Get flights for today, prioritized: domestic Vietnam flights first, then Vietnam to international.
      * If no flights found in database, automatically fetches from API and saves to database.
-     * Results are cached for 30 minutes to avoid excessive API calls.
+     * Results are cached by time slot (4-hour intervals) to ensure data freshness throughout the day.
+     * This means cache refreshes roughly every 4 hours, so morning data won't be stale by evening.
      * 
      * @param limit Maximum number of flights to return
      * @return FlightSearchResult with prioritized flights
      */
     @Cacheable(value = "todayFlights", 
-               key = "'today-' + T(java.time.LocalDate).now().toString() + '-' + #limit",
+               key = "'today-' + T(java.time.LocalDate).now().toString() + '-' + T(io.github.nguyenvu.backend.flight.service.FlightSearchService).getTimeSlot() + '-' + #limit",
                unless = "#result == null || #result.flights.isEmpty()")
     public FlightSearchResult getTodayFlights(int limit) {
         LocalDate today = LocalDate.now();
@@ -242,6 +244,17 @@ public class FlightSearchService {
             log.error("Error fetching and saving flights for date {}: {}", date, e.getMessage(), e);
             throw new RuntimeException("Failed to fetch flights from API for date " + date + ": " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Get current time slot (4-hour intervals: 0-3, 4-7, 8-11, 12-15, 16-19, 20-23).
+     * This ensures cache refreshes every 4 hours throughout the day.
+     * 
+     * @return Time slot identifier (0-5)
+     */
+    public static int getTimeSlot() {
+        int hour = LocalTime.now().getHour();
+        return hour / 4; // 0-3: slot 0, 4-7: slot 1, 8-11: slot 2, 12-15: slot 3, 16-19: slot 4, 20-23: slot 5
     }
 
     /**
