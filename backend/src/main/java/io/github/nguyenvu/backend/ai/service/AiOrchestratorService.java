@@ -2,18 +2,29 @@ package io.github.nguyenvu.backend.ai.service;
 
 import io.github.nguyenvu.backend.ai.dto.ChatAskRequest;
 import io.github.nguyenvu.backend.ai.dto.ChatAskResponse;
+import io.github.nguyenvu.backend.ai.entity.ConversationMessage;
+import io.github.nguyenvu.backend.flight.dto.FlightSearchCriteria;
+import io.github.nguyenvu.backend.flight.dto.FlightSearchResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+
 import io.github.nguyenvu.backend.ai.tool.EstimateCO2Tool;
 import io.github.nguyenvu.backend.ai.tool.GeneralKnowledgeTool;
 import io.github.nguyenvu.backend.ai.tool.LiveStatusTool;
 import io.github.nguyenvu.backend.ai.tool.RagPolicyTool;
 import io.github.nguyenvu.backend.ai.tool.SearchFlightsTool;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,6 +40,9 @@ public class AiOrchestratorService {
     private final LiveStatusTool liveStatusTool;
     private final ConversationService conversationService;
     private final ObjectMapper objectMapper;
+
+    private static final int HISTORY_LIMIT = 20;
+    private static final int CONTEXT_CHAR_BUDGET = 3000;
 
     public ChatAskResponse ask(ChatAskRequest req) {
         // Get or create conversation
@@ -50,8 +64,11 @@ public class AiOrchestratorService {
         conversationService.saveUserMessage(conversation, message);
         
         // Get conversation history (last 10 messages for context)
-        List<io.github.nguyenvu.backend.ai.entity.ConversationMessage> history = 
-            conversationService.getConversationHistory(sessionId, 10);
+        List<ConversationMessage> history = 
+            conversationService.getConversationHistory(sessionId, HISTORY_LIMIT);
+        
+        // Build conversation summary
+        String summary = buildConversationSummary(history);
         
         // Update conversation title from first message if not set
         if (conversation.getTitle() == null || conversation.getTitle().equals("New Conversation")) {
@@ -60,7 +77,7 @@ public class AiOrchestratorService {
         }
 
         // Runtime tool-first: explicit tool call "tool.<name> {json}"
-        ChatAskResponse runtimeTool = tryHandleRuntimeToolCall(message, req.getSessionId());
+        ChatAskResponse runtimeTool = tryHandleRuntimeToolCall(message, sessionId);
         if (runtimeTool != null) {
             return runtimeTool;
         }
@@ -185,15 +202,15 @@ public class AiOrchestratorService {
             // Build final user message with context
             String userMessageWithContext = contextBuilder.toString() + 
                 "Câu hỏi hiện tại của khách hàng: " + message;
-            
+
             var result = chatClient
                     .prompt()
                     .user(userMessageWithContext)
                     .call()
                     .content();
 
-            boolean usedTools = result != null && result.contains("[Tool]") || 
-                               message.toLowerCase().contains("tool.");
+            boolean usedTools = (result != null && result.contains("[Tool]")) ||
+                    message.toLowerCase().contains("tool.");
             
             // Save assistant message
             conversationService.saveAssistantMessage(conversation, result, usedTools, null);
@@ -223,7 +240,7 @@ public class AiOrchestratorService {
         try {
             return switch (tool) {
                 case "searchFlights" -> {
-                    var criteria = objectMapper.readValue(json, io.github.nguyenvu.backend.flight.dto.FlightSearchCriteria.class);
+                    var criteria = objectMapper.readValue(json, FlightSearchCriteria.class);
                     var result = searchFlightsTool.apply(criteria);
                     String summary = "Tìm thấy " + result.getTotalElements() + " chuyến.";
                     yield ChatAskResponse.builder().answer(summary).usedTools(true).sessionId(sessionId).build();
@@ -306,12 +323,12 @@ public class AiOrchestratorService {
         return false;
     }
 
-    private io.github.nguyenvu.backend.flight.dto.FlightSearchCriteria parseBasicCriteria(String text) {
-        var c = new io.github.nguyenvu.backend.flight.dto.FlightSearchCriteria();
+    private FlightSearchCriteria parseBasicCriteria(String text) {
+        var c = new FlightSearchCriteria();
         String t = text.toUpperCase();
         
         // Map airport names to IATA codes (with and without diacritics)
-        java.util.Map<String, String> airportMap = new java.util.HashMap<>();
+        Map<String, String> airportMap = new HashMap<>();
         // Tan Son Nhat / SGN
         airportMap.put("TÂN SƠN NHẤT", "SGN");
         airportMap.put("TAN SON NHAT", "SGN");
@@ -422,33 +439,33 @@ public class AiOrchestratorService {
         }
         
         // Parse date
-        var dateMatcher = java.util.regex.Pattern.compile("(20\\d{2}-\\d{2}-\\d{2})").matcher(text);
+        var dateMatcher = Pattern.compile("(20\\d{2}-\\d{2}-\\d{2})").matcher(text);
         if (dateMatcher.find()) {
-            c.setSnapshotDate(java.time.LocalDate.parse(dateMatcher.group(1)));
+            c.setSnapshotDate(LocalDate.parse(dateMatcher.group(1)));
         } else {
             // Try to parse Vietnamese date format: "ngày 12 tháng 11 năm 2025"
-            var vnDatePattern = java.util.regex.Pattern.compile("NGÀY\\s+(\\d{1,2})\\s+THÁNG\\s+(\\d{1,2})\\s+NĂM\\s+(\\d{4})", java.util.regex.Pattern.CASE_INSENSITIVE);
+            var vnDatePattern = Pattern.compile("NGÀY\\s+(\\d{1,2})\\s+THÁNG\\s+(\\d{1,2})\\s+NĂM\\s+(\\d{4})", Pattern.CASE_INSENSITIVE);
             var vnDateMatcher = vnDatePattern.matcher(t);
             if (vnDateMatcher.find()) {
                 int day = Integer.parseInt(vnDateMatcher.group(1));
                 int month = Integer.parseInt(vnDateMatcher.group(2));
                 int year = Integer.parseInt(vnDateMatcher.group(3));
                 try {
-                    c.setSnapshotDate(java.time.LocalDate.of(year, month, day));
+                    c.setSnapshotDate(LocalDate.of(year, month, day));
                 } catch (Exception e) {
                     log.warn("Invalid date: {}-{}-{}", year, month, day);
-                    c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
+                    c.setSnapshotDate(LocalDate.now().plusDays(1));
                 }
             } else {
                 // Check for "hôm nay", "hôm qua", "ngày mai", etc.
                 if (t.contains("HÔM NAY") || t.contains("HOM NAY") || t.contains("TODAY")) {
-                    c.setSnapshotDate(java.time.LocalDate.now());
+                    c.setSnapshotDate(LocalDate.now());
                 } else if (t.contains("HÔM QUA") || t.contains("HOM QUA") || t.contains("YESTERDAY")) {
-                    c.setSnapshotDate(java.time.LocalDate.now().minusDays(1));
+                    c.setSnapshotDate(LocalDate.now().minusDays(1));
                 } else if (t.contains("NGÀY MAI") || t.contains("NGAY MAI") || t.contains("TOMORROW")) {
-                    c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
+                    c.setSnapshotDate(LocalDate.now().plusDays(1));
                 } else {
-                    c.setSnapshotDate(java.time.LocalDate.now().plusDays(1));
+                    c.setSnapshotDate(LocalDate.now().plusDays(1));
                 }
             }
         }
@@ -456,7 +473,7 @@ public class AiOrchestratorService {
         return c;
     }
 
-    private String formatFlightSample(io.github.nguyenvu.backend.flight.dto.FlightSearchResult result) {
+    private String formatFlightSample(FlightSearchResult result) {
         var f = result.getFlights().get(0);
         String price = f.getPriceCents() != null ? (f.getPriceCents() / 100) + "₫" : "N/A";
         return f.getCarrier() + " " + f.getFlightNo() + " • " + f.getDepIata() + "→" + f.getArrIata()
@@ -489,7 +506,7 @@ public class AiOrchestratorService {
      * Compose a natural answer using LLM with retrieved context
      */
     private String composeAnswerWithContext(String question, String context, 
-                                           List<io.github.nguyenvu.backend.ai.entity.ConversationMessage> history) {
+                                           List<ConversationMessage> history) {
         try {
             StringBuilder systemPrompt = new StringBuilder();
             systemPrompt.append("Bạn là trợ lý tư vấn khách hàng chuyên nghiệp của hãng hàng không.\n");
@@ -529,5 +546,17 @@ public class AiOrchestratorService {
             // Fallback: return context directly
             return "Dựa trên thông tin tìm được:\n\n" + context;
         }
+    }
+
+
+    private String buildConversationSummary(List<ConversationMessage> history) {
+        StringBuilder stringBuilder = new StringBuilder();
+        for(ConversationMessage message: history) {
+            stringBuilder.append(message.getRole() == ConversationMessage.MessageRole.USER ? "Khách: ": "Trợ lý: ");
+            stringBuilder.append(message.getContent()).append("\n\n");
+            if(stringBuilder.length() > CONTEXT_CHAR_BUDGET) break;
+        }
+
+        return stringBuilder.toString().trim();
     }
 }

@@ -7,15 +7,20 @@ import io.github.nguyenvu.backend.flight.repository.FlightSnapshotRepository;
 import io.github.nguyenvu.backend.flight.repository.PriceStatistics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -30,6 +35,14 @@ public class FlightSearchService {
 
     private final FlightSnapshotRepository flightSnapshotRepository;
     private final FlightRankingService rankingService;
+    private final FlightIngestionService flightIngestionService;
+
+    @Value("${app.ingestion.provider:hybrid}")
+    private String ingestionProvider;
+    
+    // Self-injection to ensure transaction proxy is triggered
+    @Autowired
+    private FlightSearchService self;
 
     /**
      * Search flights with criteria and intelligent ranking.
@@ -127,13 +140,15 @@ public class FlightSearchService {
 
     /**
      * Get flights for today, prioritized: domestic Vietnam flights first, then Vietnam to international.
-     * Results are cached for 30 minutes to avoid excessive API calls.
+     * If no flights found in database, automatically fetches from API and saves to database.
+     * Results are cached by time slot (4-hour intervals) to ensure data freshness throughout the day.
+     * This means cache refreshes roughly every 4 hours, so morning data won't be stale by evening.
      * 
      * @param limit Maximum number of flights to return
      * @return FlightSearchResult with prioritized flights
      */
     @Cacheable(value = "todayFlights", 
-               key = "'today-' + T(java.time.LocalDate).now().toString() + '-' + #limit",
+               key = "'today-' + T(java.time.LocalDate).now().toString() + '-' + T(io.github.nguyenvu.backend.flight.service.FlightSearchService).getTimeSlot() + '-' + #limit",
                unless = "#result == null || #result.flights.isEmpty()")
     public FlightSearchResult getTodayFlights(int limit) {
         LocalDate today = LocalDate.now();
@@ -147,9 +162,28 @@ public class FlightSearchService {
         List<FlightSnapshot> internationalFlights = flightSnapshotRepository.findTodayInternationalFlights(today);
         log.debug("Found {} international flights for {}", internationalFlights.size(), today);
         
-        // If no flights for today, try to get flights from nearby dates (yesterday, tomorrow) as fallback
+        // If no flights for today in database, fetch from API
         if (domesticFlights.isEmpty() && internationalFlights.isEmpty()) {
-            log.warn("No flights found for today ({}). Checking nearby dates...", today);
+            log.warn("No flights found in database for today ({}). Fetching from API...", today);
+            try {
+                // Call via self-injected proxy to ensure transaction is created
+                self.fetchAndSaveTodayFlights(today);
+                log.info("Successfully fetched flights from API for today ({}). Querying database again...", today);
+                
+                // Query database again after fetching
+                domesticFlights = flightSnapshotRepository.findTodayDomesticFlights(today);
+                internationalFlights = flightSnapshotRepository.findTodayInternationalFlights(today);
+                log.info("After fetching from API, found {} domestic and {} international flights for today", 
+                    domesticFlights.size(), internationalFlights.size());
+            } catch (Exception e) {
+                log.error("Failed to fetch flights from API for today ({}): {}", today, e.getMessage(), e);
+                // Continue with fallback logic below
+            }
+        }
+        
+        // If still no flights for today, try to get flights from nearby dates (yesterday, tomorrow) as fallback
+        if (domesticFlights.isEmpty() && internationalFlights.isEmpty()) {
+            log.warn("Still no flights found for today ({}). Checking nearby dates...", today);
             // Try tomorrow (T+1) - ingestion usually runs for T+1
             LocalDate tomorrow = today.plusDays(1);
             domesticFlights = flightSnapshotRepository.findTodayDomesticFlights(tomorrow);
@@ -183,6 +217,44 @@ public class FlightSearchService {
                 .snapshotDate(today)
                 .build())
             .build();
+    }
+    
+    /**
+     * Fetch flights for a specific date from API and save to database.
+     * This method has write transaction access with REQUIRES_NEW propagation
+     * to ensure it runs in a new transaction even when called from read-only context.
+     * 
+     * @param date Date to fetch flights for
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @CacheEvict(value = "todayFlights", allEntries = true)
+    public void fetchAndSaveTodayFlights(LocalDate date) {
+        log.info("Fetching flights from API for date: {} using provider: {}", date, ingestionProvider);
+        try {
+            List<FlightSnapshot> fetchedFlights = flightIngestionService.testFetch(ingestionProvider, date, null, null);
+            if (fetchedFlights == null || fetchedFlights.isEmpty()) {
+                log.warn("No flights fetched from API for date: {}", date);
+                return;
+            }
+            
+            log.info("Fetched {} flights from API for date: {}. Saving to database...", fetchedFlights.size(), date);
+            flightSnapshotRepository.saveAll(fetchedFlights);
+            log.info("Successfully saved {} flights to database for date: {}", fetchedFlights.size(), date);
+        } catch (Exception e) {
+            log.error("Error fetching and saving flights for date {}: {}", date, e.getMessage(), e);
+            throw new RuntimeException("Failed to fetch flights from API for date " + date + ": " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Get current time slot (4-hour intervals: 0-3, 4-7, 8-11, 12-15, 16-19, 20-23).
+     * This ensures cache refreshes every 4 hours throughout the day.
+     * 
+     * @return Time slot identifier (0-5)
+     */
+    public static int getTimeSlot() {
+        int hour = LocalTime.now().getHour();
+        return hour / 4; // 0-3: slot 0, 4-7: slot 1, 8-11: slot 2, 12-15: slot 3, 16-19: slot 4, 20-23: slot 5
     }
 
     /**
