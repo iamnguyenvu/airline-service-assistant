@@ -17,16 +17,11 @@ export function PageLayout({ children }: PageLayoutProps) {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
-      <main
-        className="flex-1 overflow-y-auto"
-        style={{
-          marginLeft: sidebarCollapsed ? '64px' : '240px',
-          transition: 'margin-left 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      >
+      <main className="flex-1 overflow-y-auto">
         {children}
       </main>
     </div>
   );
 }
+
 
