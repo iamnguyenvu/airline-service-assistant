@@ -4,7 +4,6 @@ import { useTheme } from 'next-themes';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   MessageSquare,
-  History,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -12,19 +11,10 @@ import {
   Sun,
   Plane,
   Plus,
-  Trash2,
-  LogIn,
+  HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/lib/auth/AuthContext';
-import { useChatHistory } from '@/lib/store/chatHistory';
-import { UserButton } from '@/components/auth/UserButton';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { useState } from 'react';
-import { AuthModal } from '@/components/auth/AuthModal';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -34,218 +24,155 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggleCollapse, onNewChat }: SidebarProps) {
   const { theme, setTheme } = useTheme();
-  const { isAuthenticated } = useAuth();
-  const { sessions, currentSessionId, setCurrentSession, deleteSession, createSession } = useChatHistory();
   const pathname = usePathname();
   const router = useRouter();
-  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const menuItems = [
     { id: 'chat', icon: MessageSquare, label: 'Chat Tư Vấn', href: '/' },
     { id: 'today-flights', icon: Plane, label: 'Chuyến Bay Hôm Nay', href: '/today-flights' },
   ];
 
-  const handleNewChat = () => {
-    if (isAuthenticated) {
-      createSession();
-    }
-    onNewChat?.();
-  };
-
-  const handleSelectSession = (sessionId: string) => {
-    setCurrentSession(sessionId);
-    router.push('/');
-  };
-
   return (
-    <>
-      <aside
-        className={cn(
-          'flex flex-col border-r bg-card transition-all duration-300',
-          collapsed ? 'w-16' : 'w-64',
-          'hidden md:flex'
+    <aside
+      className={cn(
+        'flex flex-col border-r bg-card transition-all duration-300',
+        collapsed ? 'w-16' : 'w-64',
+        'hidden md:flex'
+      )}
+    >
+      {/* Logo Header */}
+      <div className="flex h-14 items-center justify-between border-b px-4">
+        {!collapsed && (
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary to-primary/70">
+              <Plane className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="font-semibold text-lg">Airline AI</span>
+          </div>
         )}
-      >
-        <div className="flex h-14 items-center justify-between border-b px-4">
-          {!collapsed && (
-            <div className="flex items-center gap-2">
-              <Plane className="h-6 w-6 text-primary" />
-              <span className="font-semibold text-lg">Airline AI</span>
-            </div>
+        {collapsed && (
+          <div className="mx-auto p-1.5 rounded-lg bg-gradient-to-br from-primary to-primary/70">
+            <Plane className="h-5 w-5 text-primary-foreground" />
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={onToggleCollapse}
+        >
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
           )}
-          {collapsed && <Plane className="h-6 w-6 text-primary mx-auto" />}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={onToggleCollapse}
-          >
-            {collapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </Button>
+        </Button>
+      </div>
+
+      {/* Main Navigation */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="px-2 py-3 space-y-1">
+          {/* New Chat Button */}
+          {!collapsed ? (
+            <Button
+              variant="default"
+              className="w-full justify-start gap-2 rounded-lg"
+              size="sm"
+              onClick={onNewChat}
+            >
+              <Plus className="h-4 w-4" />
+              Chat Mới
+            </Button>
+          ) : (
+            <Button 
+              variant="default" 
+              size="icon" 
+              className="w-full rounded-lg"
+              onClick={onNewChat}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
-          <div className="px-2 py-3 space-y-1">
-            {!collapsed ? (
+        {/* Navigation Items */}
+        <div className="px-2 space-y-1">
+          {menuItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
               <Button
-                variant="default"
-                className="w-full justify-start gap-2"
-                size="sm"
-                onClick={handleNewChat}
-              >
-                <Plus className="h-4 w-4" />
-                Chat Mới
-              </Button>
-            ) : (
-              <Button 
-                variant="default" 
-                size="icon" 
-                className="w-full"
-                onClick={handleNewChat}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-
-          <div className="px-2 space-y-1">
-            {menuItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Button
-                  key={item.id}
-                  variant={isActive ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'w-full',
-                    collapsed ? 'justify-center px-0' : 'justify-start gap-3'
-                  )}
-                  size="sm"
-                  onClick={() => router.push(item.href)}
-                >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
-                </Button>
-              );
-            })}
-          </div>
-
-          {/* Chat History - Only for authenticated users */}
-          {!collapsed && (
-            <div className="flex-1 overflow-hidden flex flex-col mt-4">
-              <div className="px-3 flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground uppercase">
-                  {isAuthenticated ? 'Lịch sử chat' : 'Đăng nhập để lưu lịch sử'}
-                </span>
-                {isAuthenticated && sessions.length > 0 && (
-                  <History className="h-3 w-3 text-muted-foreground" />
+                key={item.id}
+                variant={isActive ? 'secondary' : 'ghost'}
+                className={cn(
+                  'w-full rounded-lg',
+                  collapsed ? 'justify-center px-0' : 'justify-start gap-3'
                 )}
+                size="sm"
+                onClick={() => router.push(item.href)}
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </Button>
+            );
+          })}
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Quick Tips when not collapsed */}
+        {!collapsed && (
+          <div className="px-3 pb-3">
+            <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+              <div className="flex items-center gap-1.5 font-medium">
+                <HelpCircle className="h-3 w-3" />
+                Mẹo sử dụng
               </div>
-              
-              {isAuthenticated ? (
-                <ScrollArea className="flex-1 px-2 mt-2">
-                  <div className="space-y-1">
-                    {sessions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground px-2 py-4 text-center">
-                        Chưa có cuộc trò chuyện nào
-                      </p>
-                    ) : (
-                      sessions.slice(0, 10).map((session) => (
-                        <div
-                          key={session.id}
-                          className={cn(
-                            'group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent',
-                            currentSessionId === session.id && 'bg-accent'
-                          )}
-                          onClick={() => handleSelectSession(session.id)}
-                        >
-                          <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" />
-                          <div className="flex-1 truncate">
-                            <p className="truncate text-xs">{session.title}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {format(new Date(session.updatedAt), 'dd/MM HH:mm', { locale: vi })}
-                            </p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 opacity-0 group-hover:opacity-100"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteSession(session.id);
-                            }}
-                          >
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              ) : (
-                <div className="px-2 mt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full gap-2"
-                    onClick={() => setShowAuthModal(true)}
-                  >
-                    <LogIn className="h-3 w-3" />
-                    Đăng nhập
-                  </Button>
-                </div>
-              )}
+              <p>Hỏi về chuyến bay, chính sách hành lý, hoặc yêu cầu tìm vé máy bay.</p>
             </div>
-          )}
-        </div>
-
-        <div className="border-t p-2 space-y-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={cn(
-              'w-full',
-              collapsed ? 'justify-center px-0' : 'justify-start gap-3'
-            )}
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          >
-            {theme === 'dark' ? (
-              <>
-                <Sun className="h-4 w-4" />
-                {!collapsed && <span>Sáng</span>}
-              </>
-            ) : (
-              <>
-                <Moon className="h-4 w-4" />
-                {!collapsed && <span>Tối</span>}
-              </>
-            )}
-          </Button>
-
-          <Button
-            variant={pathname === '/settings' ? 'secondary' : 'ghost'}
-            size="sm"
-            className={cn(
-              'w-full',
-              collapsed ? 'justify-center px-0' : 'justify-start gap-3'
-            )}
-            onClick={() => router.push('/settings')}
-          >
-            <Settings className="h-4 w-4 shrink-0" />
-            {!collapsed && <span>Cài Đặt</span>}
-          </Button>
-
-          {/* User Button */}
-          <div className={cn('flex', collapsed ? 'justify-center' : 'px-1')}>
-            <UserButton />
           </div>
-        </div>
-      </aside>
+        )}
+      </div>
 
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
-    </>
+      {/* Footer Actions */}
+      <div className="border-t p-2 space-y-1">
+        {/* Theme Toggle */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            'w-full rounded-lg',
+            collapsed ? 'justify-center px-0' : 'justify-start gap-3'
+          )}
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        >
+          {theme === 'dark' ? (
+            <>
+              <Sun className="h-4 w-4" />
+              {!collapsed && <span>Chế độ sáng</span>}
+            </>
+          ) : (
+            <>
+              <Moon className="h-4 w-4" />
+              {!collapsed && <span>Chế độ tối</span>}
+            </>
+          )}
+        </Button>
+
+        {/* Settings */}
+        <Button
+          variant={pathname === '/settings' ? 'secondary' : 'ghost'}
+          size="sm"
+          className={cn(
+            'w-full rounded-lg',
+            collapsed ? 'justify-center px-0' : 'justify-start gap-3'
+          )}
+          onClick={() => router.push('/settings')}
+        >
+          <Settings className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>Cài đặt</span>}
+        </Button>
+      </div>
+    </aside>
   );
 }

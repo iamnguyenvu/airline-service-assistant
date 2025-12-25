@@ -200,8 +200,11 @@ export function ChatArea({ onShowRightPanel, newChatTrigger }: ChatAreaProps) {
                   onKeyDown={handleKeyDown}
                   placeholder="Hỏi về chuyến bay, chính sách hành lý, hoặc bất cứ điều gì..."
                   className="placeholder:text-muted-foreground/50 max-h-[150px] min-h-[44px] flex-1 resize-none 
-                  border-0 bg-transparent p-0 text-[15px] leading-relaxed
-                  ring-0 ring-offset-0 focus:ring-0 focus:outline-none focus-visible:ring-0"
+                  border-0 border-none bg-transparent p-0 text-[15px] leading-relaxed
+                  ring-0 ring-transparent ring-offset-0 outline-none shadow-none
+                  focus:ring-0 focus:ring-transparent focus:outline-none focus:border-none focus:shadow-none
+                  focus-visible:ring-0 focus-visible:ring-transparent focus-visible:outline-none focus-visible:border-none"
+                  style={{ boxShadow: 'none', outline: 'none' }}
                   rows={1}
                 />
                 <div className="flex items-center gap-1 shrink-0 pb-0.5">
