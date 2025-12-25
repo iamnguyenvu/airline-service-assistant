@@ -187,47 +187,61 @@ export function ChatArea({ onShowRightPanel, newChatTrigger }: ChatAreaProps) {
         </div>
       </ScrollArea>
 
-      <div className="bg-background border-t p-4">
+      <div className="bg-gradient-to-t from-background via-background to-transparent pt-4 pb-4 px-4">
         <div className="mx-auto max-w-3xl">
-          <div className="flex items-center gap-2">
-            <div className="bg-card flex flex-1 items-center gap-2 rounded-2xl border px-3 py-2 shadow-sm">
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Paperclip className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Mic className="h-4 w-4" />
-                </Button>
+          <div className="relative flex items-end gap-3">
+            {/* Modern chat input container with glassmorphism effect */}
+            <div className="flex-1 bg-card/80 backdrop-blur-sm rounded-2xl border border-border/50 shadow-lg shadow-primary/5 transition-all duration-200 focus-within:border-primary/50 focus-within:shadow-primary/10">
+              <div className="flex items-end p-3 gap-3">
+                <Textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Hỏi về chuyến bay, chính sách hành lý, hoặc bất cứ điều gì..."
+                  className="placeholder:text-muted-foreground/50 max-h-[150px] min-h-[44px] flex-1 resize-none 
+                  border-0 bg-transparent p-0 text-[15px] leading-relaxed
+                  ring-0 ring-offset-0 focus:ring-0 focus:outline-none focus-visible:ring-0"
+                  rows={1}
+                />
+                <div className="flex items-center gap-1 shrink-0 pb-0.5">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  >
+                    <Mic className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Nhập câu hỏi hoặc yêu cầu của bạn..."
-                className="placeholder:text-muted-foreground/60 max-h-[200px] min-h-11 flex-1 resize-none 
-                border-0! bg-transparent p-0 ring-0! ring-offset-0! focus:border-transparent focus:ring-0 
-                focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
-                rows={1}
-              />
-
-              <span className="text-muted-foreground shrink-0 text-xs">{input.length}/2000</span>
+              <div className="flex items-center justify-between px-3 pb-2 pt-0">
+                <span className="text-[11px] text-muted-foreground/60">
+                  {input.length > 0 ? `${input.length}/2000 ký tự` : 'Nhấn Enter để gửi, Shift+Enter xuống dòng'}
+                </span>
+              </div>
             </div>
 
+            {/* Send button with gradient and animation */}
             <Button
               onClick={handleSend}
               disabled={!input.trim() || isTyping}
               size="icon"
-              className="h-12 w-14 shrink-0 rounded-2xl"
-              aria-label="Gửi"
+              className="h-[52px] w-[52px] shrink-0 rounded-xl bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25 transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 disabled:shadow-none"
+              aria-label="Gửi tin nhắn"
             >
               <Send className="h-5 w-5" />
             </Button>
           </div>
 
-          <p className="text-muted-foreground mt-2 text-center text-xs">
-            AI có thể mắc lỗi. Vui lòng kiểm tra thông tin quan trọng.
+          <p className="text-muted-foreground/60 mt-3 text-center text-[11px]">
+            Airline AI có thể đưa ra thông tin không chính xác. Vui lòng kiểm tra các thông tin quan trọng.
           </p>
         </div>
       </div>
