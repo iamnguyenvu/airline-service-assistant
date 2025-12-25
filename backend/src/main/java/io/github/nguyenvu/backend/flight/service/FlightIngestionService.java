@@ -5,12 +5,16 @@ import io.github.nguyenvu.backend.flight.repository.FlightSnapshotRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -29,10 +33,16 @@ public class FlightIngestionService {
 
     private Map<String, FlightIngestionProvider> providerMap;
 
+    // Track last successful ingestion for health monitoring
+    private final AtomicReference<LocalDateTime> lastSuccessfulIngestion = new AtomicReference<>();
+    private final AtomicReference<String> lastIngestionStatus = new AtomicReference<>("NOT_RUN");
+
     @jakarta.annotation.PostConstruct
     void init() {
         providerMap = providers.stream()
                 .collect(Collectors.toMap(p -> p.name().toLowerCase(), p -> p));
+        log.info("FlightIngestionService initialized with {} providers: {}",
+                providerMap.size(), providerMap.keySet());
     }
 
     private FlightIngestionProvider resolveProvider(String name) {
@@ -49,7 +59,7 @@ public class FlightIngestionService {
     public List<FlightSnapshot> testFetch(String providerName, LocalDate date, String dep, String arr) {
         FlightIngestionProvider selected = resolveProvider(providerName);
         if (selected == null) {
-            log.warn("Provider '{}' not found. Available providers: {}", providerName, 
+            log.warn("Provider '{}' not found. Available providers: {}", providerName,
                     providerMap != null ? providerMap.keySet() : "none");
             throw new IllegalArgumentException("Provider '" + providerName + "' not found");
         }
@@ -67,32 +77,103 @@ public class FlightIngestionService {
         }
     }
 
-    // Daily run: T+1 snapshots by default
-    @Scheduled(cron = "${app.ingestion.cron:0 15 2 * * *}")
+    /**
+     * Daily ingestion job for tomorrow's flights (T+1).
+     * Runs at 2:15 AM Vietnam time.
+     */
+    @Scheduled(cron = "${app.ingestion.cron:0 15 2 * * *}", zone = "Asia/Ho_Chi_Minh")
+    @Transactional
+    @CacheEvict(value = "todayFlights", allEntries = true)
     public void runDailySnapshotIngestion() {
         if (!ingestionEnabled) {
             log.debug("Flight ingestion disabled (app.ingestion.enabled=false)");
             return;
         }
-        log.info("Starting flight ingestion job with provider={}", provider);
+        LocalDate date = LocalDate.now().plusDays(1);
+        log.info("[SCHEDULER] Starting T+1 flight ingestion for {} with provider={}", date, provider);
+        ingestForDate(date);
+    }
+
+    /**
+     * Morning ingestion job for today's flights.
+     * Runs at 6:00 AM Vietnam time to ensure today's data is available.
+     */
+    @Scheduled(cron = "0 0 6 * * *", zone = "Asia/Ho_Chi_Minh")
+    @Transactional
+    @CacheEvict(value = "todayFlights", allEntries = true)
+    public void runTodayFlightIngestion() {
+        if (!ingestionEnabled) {
+            log.debug("Flight ingestion disabled (app.ingestion.enabled=false)");
+            return;
+        }
+        LocalDate today = LocalDate.now();
+        log.info("[SCHEDULER] Starting today's flight ingestion for {} with provider={}", today, provider);
+        ingestForDate(today);
+    }
+
+    /**
+     * Health check job - verifies data availability.
+     * Runs every hour to monitor data freshness.
+     */
+    @Scheduled(fixedRate = 3600000) // Every hour
+    public void verifyDataHealth() {
+        LocalDate today = LocalDate.now();
+        long todayCount = snapshotRepository.countBySnapshotDate(today);
+        long tomorrowCount = snapshotRepository.countBySnapshotDate(today.plusDays(1));
+
+        if (todayCount == 0 && ingestionEnabled) {
+            log.warn("[HEALTH] ⚠️ No flights found for TODAY ({}). Consider manual ingestion.", today);
+            lastIngestionStatus.set("WARNING_NO_TODAY_DATA");
+        } else if (tomorrowCount == 0 && ingestionEnabled) {
+            log.info("[HEALTH] No T+1 flights yet for {}. Will be ingested at 2:15 AM.", today.plusDays(1));
+        } else {
+            log.debug("[HEALTH] ✅ Data OK: {} flights for today, {} for tomorrow", todayCount, tomorrowCount);
+        }
+    }
+
+    /**
+     * Ingest flights for a specific date.
+     */
+    @Transactional
+    public void ingestForDate(LocalDate date) {
         try {
-            LocalDate date = LocalDate.now().plusDays(1);
             FlightIngestionProvider selected = resolveProvider(provider);
             if (selected == null) {
+                lastIngestionStatus.set("FAILED_NO_PROVIDER");
                 return;
             }
+
             // Fetch → normalize → persist snapshots
             List<FlightSnapshot> snapshots = selected.fetchDaily(date);
             if (snapshots == null || snapshots.isEmpty()) {
-                log.info("No snapshots fetched for date {}", date);
+                log.info("[INGESTION] No snapshots fetched for date {}", date);
+                lastIngestionStatus.set("COMPLETED_EMPTY");
                 return;
             }
+
             snapshotRepository.saveAll(snapshots);
-            log.info("Ingestion completed: saved {} snapshots for {}", snapshots.size(), date);
+            lastSuccessfulIngestion.set(LocalDateTime.now());
+            lastIngestionStatus.set("SUCCESS");
+            log.info("[INGESTION] ✅ Completed: saved {} snapshots for {}", snapshots.size(), date);
         } catch (Exception e) {
-            log.error("Ingestion failed: {}", e.getMessage(), e);
+            lastIngestionStatus.set("FAILED_" + e.getClass().getSimpleName());
+            log.error("[INGESTION] ❌ Failed for {}: {}", date, e.getMessage(), e);
         }
     }
+
+    /**
+     * Get ingestion health status for monitoring.
+     */
+    public Map<String, Object> getHealthStatus() {
+        LocalDate today = LocalDate.now();
+        return Map.of(
+                "enabled", ingestionEnabled,
+                "provider", provider,
+                "lastSuccessfulIngestion", lastSuccessfulIngestion.get() != null
+                        ? lastSuccessfulIngestion.get().toString()
+                        : "never",
+                "lastStatus", lastIngestionStatus.get(),
+                "todayFlightCount", snapshotRepository.countBySnapshotDate(today),
+                "tomorrowFlightCount", snapshotRepository.countBySnapshotDate(today.plusDays(1)));
+    }
 }
-
-
